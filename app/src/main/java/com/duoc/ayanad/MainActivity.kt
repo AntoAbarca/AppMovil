@@ -11,6 +11,7 @@ import com.duoc.ayanad.ui.Login
 import com.duoc.ayanad.viewmodel.LoginViewModel
 import com.duoc.ayanad.ui.InicioProductor
 import com.duoc.ayanad.ui.InicioAplicador
+import com.duoc.ayanad.ui.MisOfertasS
 import com.duoc.ayanad.ui.MisSolicitudes
 
 class MainActivity : ComponentActivity() {
@@ -23,7 +24,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AyanadTheme {
-                MisSolicitudes()
+                MisOfertasS ()
 
             }
         }
@@ -33,4 +34,5 @@ class MainActivity : ComponentActivity() {
 //Login(viewModel = viewModelLogin) llama a la  pantalla 1
 //Registro(viewModel = viewModelForm) llama a la pantalla 2
 //InicioProductor() a la pantalla 3
-//InicioAplicador() a la  pantalla 7 //
+//MisSolicitudes() a la pantalla 4
+//InicioAplicador() a la  pantalla 7
