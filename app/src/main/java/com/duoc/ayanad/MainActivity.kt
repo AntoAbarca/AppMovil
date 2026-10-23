@@ -11,6 +11,7 @@ import com.duoc.ayanad.ui.Login
 import com.duoc.ayanad.viewmodel.LoginViewModel
 import com.duoc.ayanad.ui.InicioProductor
 import com.duoc.ayanad.ui.InicioAplicador
+import com.duoc.ayanad.ui.MisSolicitudes
 
 class MainActivity : ComponentActivity() {
 
@@ -22,7 +23,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AyanadTheme {
-                Registro(viewModel = viewModelForm)
+                MisSolicitudes()
+
             }
         }
     }
