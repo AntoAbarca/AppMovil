@@ -2,8 +2,9 @@ package com.duoc.ayanad.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,19 +16,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.duoc.ayanad.viewmodel.UsuarioFormViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Registro(viewModel: UsuarioFormViewModel) {
-
     val form by viewModel.form.collectAsState()
     val errors by viewModel.errors.collectAsState()
     val registroExitoso by viewModel.registroExitoso.collectAsState()
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF5F7FA))
+            .verticalScroll(scrollState)
     ) {
-        // Franja superior azul igual a la de TecMundo
+        // Franja superior azul de TecMundo
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -43,13 +46,12 @@ fun Registro(viewModel: UsuarioFormViewModel) {
             )
         }
 
-        // Formulario con desplazamiento o columnas
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(24.dp)
         ) {
-            // Botones de selección (Cliente / Aplicador)
+            // Botones de selección de perfil (Cliente / Aplicador)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -77,124 +79,125 @@ fun Registro(viewModel: UsuarioFormViewModel) {
                 }
             }
 
-            if(form.tipoUsuario == "Aplicador"){
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text= "Seleccione su especialidad",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = Color.DarkGray
-                    )
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    modifier =  Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ){
-                    Button(
-                        onClick = {viewModel.onEspecialidadChange("Drones")},
-                        modifier =  Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors( contentColor = if (form.especialidad == "Drones")  Color(0xFF2962FF) else Color.LightGray)
-                    ) {
-                        Text("Drones", color = Color.White)
-                    }
-                    Button(
-                        onClick = {viewModel.onEspecialidadChange("Fumigar")},
-                        modifier =  Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors( contentColor = if (form.especialidad == "Fumigar")  Color(0xFF2962FF) else Color.LightGray)
-                    ) {
-                        Text("Fumigar", color = Color.White)
-                    }
-                    }
-            }
-
-            // Campos de texto con validaciones
+            // 1. Nombre
             OutlinedTextField(
                 value = form.nombre,
                 onValueChange = { viewModel.onNombreChange(it) },
                 label = { Text("Nombre") },
                 isError = errors.nombre != null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp)
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
             )
             if (errors.nombre != null) {
-                Text(text = errors.nombre!!, color = Color.Red, fontSize = 12.sp)
+                Text(text = errors.nombre!!, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
             }
 
+            // 2. Apellido
             OutlinedTextField(
                 value = form.apellido,
                 onValueChange = { viewModel.onApellidoChange(it) },
                 label = { Text("Apellido") },
                 isError = errors.apellido != null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp)
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
             )
             if (errors.apellido != null) {
-                Text(text = errors.apellido!!, color = Color.Red, fontSize = 12.sp)
+                Text(text = errors.apellido!!, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
             }
 
+            // 3. RUT
             OutlinedTextField(
                 value = form.rut,
-                onValueChange = { nuevoTexto ->
-                    // Solo permite escribir si no supera los 12 caracteres
-                    if (nuevoTexto.length <= 12) {
-                        viewModel.onRutChange(nuevoTexto)
-                    }
-                },
+                onValueChange = { if (it.length <= 12) viewModel.onRutChange(it) },
                 label = { Text("RUT (ej: 12.345.678-K)") },
                 isError = errors.rut != null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp)
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
             )
             if (errors.rut != null) {
-                Text(text = errors.rut!!, color = Color.Red, fontSize = 12.sp)
+                Text(text = errors.rut!!, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
             }
 
+            // 4. Email
             OutlinedTextField(
                 value = form.email,
                 onValueChange = { viewModel.onEmailChange(it) },
                 label = { Text("Email") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 isError = errors.email != null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp)
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
             )
             if (errors.email != null) {
-                Text(text = errors.email!!, color = Color.Red, fontSize = 12.sp)
+                Text(text = errors.email!!, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
             }
 
+            // 5. Teléfono
             OutlinedTextField(
                 value = form.telefono,
                 onValueChange = { viewModel.onTelefonoChange(it) },
                 label = { Text("Teléfono") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 isError = errors.telefono != null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp)
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
             )
             if (errors.telefono != null) {
-                Text(text = errors.telefono!!, color = Color.Red, fontSize = 12.sp)
+                Text(text = errors.telefono!!, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
             }
 
+            // 6. Región
             OutlinedTextField(
                 value = form.region,
                 onValueChange = { viewModel.onRegionChange(it) },
                 label = { Text("Región") },
                 isError = errors.region != null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
             )
             if (errors.region != null) {
-                Text(text = errors.region!!, color = Color.Red, fontSize = 12.sp)
+                Text(text = errors.region!!, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
             }
 
-            // Botón Registrarse
+            // 7. Especialidad (MOVIDO ABAJO: Aparece justo después de Región si es Aplicador)
+            if (form.tipoUsuario == "Aplicador") {
+                var expanded by remember { mutableStateOf(false) }
+                val especialidades = listOf("Drones", "Fumigar")
+
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = form.especialidad,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Especialidad") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                        },
+                        modifier = Modifier
+                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true)
+                            .fillMaxWidth()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        especialidades.forEach { esp ->
+                            DropdownMenuItem(
+                                text = { Text(text = esp) },
+                                onClick = {
+                                    viewModel.onEspecialidadChange(esp)
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Botón de Registrarse
             Button(
                 onClick = { viewModel.submit() },
                 modifier = Modifier
