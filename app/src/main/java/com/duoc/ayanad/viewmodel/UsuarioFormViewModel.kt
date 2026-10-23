@@ -57,10 +57,14 @@ class UsuarioFormViewModel : ViewModel() {
         _form.value = _form.value.copy(tipoUsuario = value)
     }
 
+    fun onEspecialidadChange(value: String){
+        _form.value = _form.value.copy(especialidad = value)
+    }
+
     private fun validate() {
         val currentForm = _form.value
 
-        // 1. Nombre: Obligatorio, mínimo 3 letras y NO debe contener números ni símbolos
+
         val nombreError = when {
             currentForm.nombre.isBlank() -> "El nombre es obligatorio"
             currentForm.nombre.length < 3 -> "El nombre debe tener al menos 3 caracteres"
@@ -99,7 +103,7 @@ class UsuarioFormViewModel : ViewModel() {
         val telefonoError = when {
             currentForm.telefono.isBlank() -> "El teléfono es obligatorio"
             !currentForm.telefono.all { it.isDigit() } -> "El teléfono solo debe contener números"
-            currentForm.telefono.length < 8 || currentForm.telefono.length > 9 -> "El teléfono debe tener entre 8 y 9 dígitos"
+            currentForm.telefono.length < 9 || currentForm.telefono.length > 11 -> "El teléfono debe tener entre 8 y 9 dígitos"
             else -> null
         }
 

@@ -6,7 +6,8 @@ data class UsuarioForm(
     val email: String = "",
     val telefono: String = "",
     val region: String = "",
-    val tipoUsuario: String = "Cliente"
+    val tipoUsuario: String = "Cliente",
+    val especialidad: String = "Drones"
 )
 data class UsuarioFormError(
     val nombre: String? = null,

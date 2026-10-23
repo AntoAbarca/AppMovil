@@ -2,6 +2,7 @@ package com.duoc.ayanad.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -76,13 +77,46 @@ fun Registro(viewModel: UsuarioFormViewModel) {
                 }
             }
 
-            // Campos de texto con validaciones dinámicas
+            if(form.tipoUsuario == "Aplicador"){
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text= "Seleccione su especialidad",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = Color.DarkGray
+                    )
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(
+                    modifier =  Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ){
+                    Button(
+                        onClick = {viewModel.onEspecialidadChange("Drones")},
+                        modifier =  Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors( contentColor = if (form.especialidad == "Drones")  Color(0xFF2962FF) else Color.LightGray)
+                    ) {
+                        Text("Drones", color = Color.White)
+                    }
+                    Button(
+                        onClick = {viewModel.onEspecialidadChange("Fumigar")},
+                        modifier =  Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors( contentColor = if (form.especialidad == "Fumigar")  Color(0xFF2962FF) else Color.LightGray)
+                    ) {
+                        Text("Fumigar", color = Color.White)
+                    }
+                    }
+            }
+
+            // Campos de texto con validaciones
             OutlinedTextField(
                 value = form.nombre,
                 onValueChange = { viewModel.onNombreChange(it) },
                 label = { Text("Nombre") },
                 isError = errors.nombre != null,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
             )
             if (errors.nombre != null) {
                 Text(text = errors.nombre!!, color = Color.Red, fontSize = 12.sp)
@@ -93,7 +127,9 @@ fun Registro(viewModel: UsuarioFormViewModel) {
                 onValueChange = { viewModel.onApellidoChange(it) },
                 label = { Text("Apellido") },
                 isError = errors.apellido != null,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
             )
             if (errors.apellido != null) {
                 Text(text = errors.apellido!!, color = Color.Red, fontSize = 12.sp)
@@ -109,7 +145,9 @@ fun Registro(viewModel: UsuarioFormViewModel) {
                 },
                 label = { Text("RUT (ej: 12.345.678-K)") },
                 isError = errors.rut != null,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
             )
             if (errors.rut != null) {
                 Text(text = errors.rut!!, color = Color.Red, fontSize = 12.sp)
@@ -121,7 +159,9 @@ fun Registro(viewModel: UsuarioFormViewModel) {
                 label = { Text("Email") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 isError = errors.email != null,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
             )
             if (errors.email != null) {
                 Text(text = errors.email!!, color = Color.Red, fontSize = 12.sp)
@@ -133,7 +173,9 @@ fun Registro(viewModel: UsuarioFormViewModel) {
                 label = { Text("Teléfono") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 isError = errors.telefono != null,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
             )
             if (errors.telefono != null) {
                 Text(text = errors.telefono!!, color = Color.Red, fontSize = 12.sp)
@@ -144,7 +186,9 @@ fun Registro(viewModel: UsuarioFormViewModel) {
                 onValueChange = { viewModel.onRegionChange(it) },
                 label = { Text("Región") },
                 isError = errors.region != null,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
             )
             if (errors.region != null) {
                 Text(text = errors.region!!, color = Color.Red, fontSize = 12.sp)
@@ -153,7 +197,9 @@ fun Registro(viewModel: UsuarioFormViewModel) {
             // Botón Registrarse
             Button(
                 onClick = { viewModel.submit() },
-                modifier = Modifier.fillMaxWidth().height(50.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2962FF))
             ) {
                 Text("Registrarse", color = Color.White, fontSize = 16.sp)
