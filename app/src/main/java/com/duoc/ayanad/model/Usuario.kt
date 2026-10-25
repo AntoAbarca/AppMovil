@@ -7,5 +7,6 @@ data class Usuario (
     val email: String,
     val telefono: String,
     val region: String,
-    val tipoUsuario: String
+    val tipoUsuario: String,
+    val especialidad: String
 )

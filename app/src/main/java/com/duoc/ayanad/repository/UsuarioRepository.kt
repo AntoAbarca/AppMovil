@@ -1,16 +1,14 @@
 package com.duoc.ayanad.repository
 
-import com.duoc.ayanad.model.UsuarioForm
+import com.duoc.ayanad.model.UsuarioDao
+import com.duoc.ayanad.model.UsuarioEntity
 
-class UsuarioRepository {
+class UsuarioRepository(private val dao: UsuarioDao) {
 
-    val listaUsuario = mutableListOf<UsuarioForm>()
-
-    fun guardarUsuario(usuario: UsuarioForm): Boolean {
-        return listaUsuario.add(usuario)
+    suspend fun obtenerUsuarios(): List<UsuarioEntity> {
+        return dao.getAllUsuarios()
     }
-
-    fun obtenerUsuarios(): List<UsuarioForm> {
-        return listaUsuario
+    suspend fun guardarUsuario(usuario: UsuarioEntity) {
+        dao.insertUsuario(usuario)
     }
 }

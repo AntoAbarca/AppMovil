@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import com.duoc.ayanad.ui.Registro
 import com.duoc.ayanad.ui.theme.AyanadTheme
 import com.duoc.ayanad.viewmodel.UsuarioFormViewModel
@@ -24,8 +25,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AyanadTheme {
-                MisOfertasS ()
-
+                Registro(viewModel = viewModelForm)
             }
         }
     }

@@ -1,131 +1,100 @@
 package com.duoc.ayanad.viewmodel
 
-import android.util.Patterns
+import android.content.Context
 import androidx.lifecycle.ViewModel
-import com.duoc.ayanad.model.UsuarioForm
-import com.duoc.ayanad.model.UsuarioFormError
+import androidx.lifecycle.viewModelScope
+import com.duoc.ayanad.model.AppDatabase
+import com.duoc.ayanad.model.UsuarioEntity
 import com.duoc.ayanad.repository.UsuarioRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+
+data class UsuarioForm(
+    val nombre: String = "",
+    val apellido: String = "",
+    val rut: String = "",
+    val email: String = "",
+    val telefono: String = "",
+    val region: String = "",
+    val tipoUsuario: String = "",
+    val especialidad: String = ""
+)
 
 class UsuarioFormViewModel : ViewModel() {
-
-    val TAG = "UsuarioFormViewModel"
-    private val repository = UsuarioRepository()
 
     private val _form = MutableStateFlow(UsuarioForm())
     val form: StateFlow<UsuarioForm> = _form
 
-    private val _errors = MutableStateFlow(UsuarioFormError())
-    val errors: StateFlow<UsuarioFormError> = _errors
+    private val _mensajeError = MutableStateFlow<String?>(null)
+    val mensajeError: StateFlow<String?> = _mensajeError
 
     private val _registroExitoso = MutableStateFlow(false)
     val registroExitoso: StateFlow<Boolean> = _registroExitoso
 
-    // Funciones para actualizar el estado del formulario cuando cambia el texto
-    fun onNombreChange(value: String) {
-        _form.value = _form.value.copy(nombre = value)
-        validate()
+    fun actualizarCampo(
+        nombre: String = _form.value.nombre,
+        apellido: String = _form.value.apellido,
+        rut: String = _form.value.rut,
+        email: String = _form.value.email,
+        telefono: String = _form.value.telefono,
+        region: String = _form.value.region,
+        tipoUsuario: String = _form.value.tipoUsuario,
+        especialidad: String = _form.value.especialidad
+    ) {
+        _form.value = UsuarioForm(nombre, apellido, rut, email, telefono, region, tipoUsuario, especialidad)
     }
 
-    fun onApellidoChange(value: String) {
-        _form.value = _form.value.copy(apellido = value)
-        validate()
-    }
-
-    fun onRutChange(value: String) {
-        _form.value = _form.value.copy(rut = value)
-        validate()
-    }
-
-    fun onEmailChange(value: String) {
-        _form.value = _form.value.copy(email = value)
-        validate()
-    }
-
-    fun onTelefonoChange(value: String) {
-        _form.value = _form.value.copy(telefono = value)
-        validate()
-    }
-
-    fun onRegionChange(value: String) {
-        _form.value = _form.value.copy(region = value)
-        validate()
-    }
-
-    fun onTipoUsuarioChange(value: String) {
-        _form.value = _form.value.copy(tipoUsuario = value)
-    }
-
-    fun onEspecialidadChange(value: String){
-        _form.value = _form.value.copy(especialidad = value)
-    }
-
-    private fun validate() {
+    // Recibe el contexto aquí para inicializar Room al momento de guardar
+    fun submitForm(context: Context) {
         val currentForm = _form.value
 
-
-        val nombreError = when {
-            currentForm.nombre.isBlank() -> "El nombre es obligatorio"
-            currentForm.nombre.length < 3 -> "El nombre debe tener al menos 3 caracteres"
-            !currentForm.nombre.all { it.isLetter() || it.isWhitespace() } -> "El nombre solo debe contener letras"
-            else -> null
+        val soloLetrasRegex = "^[a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]{2,}$".toRegex()
+        if (!currentForm.nombre.matches(soloLetrasRegex)) {
+            _mensajeError.value = "El nombre debe tener al menos 2 letras y sin números."
+            return
         }
 
-        // 2. Apellido: Obligatorio, mínimo 2 letras y NO debe contener números
-        val apellidoError = when {
-            currentForm.apellido.isBlank() -> "El apellido es obligatorio"
-            currentForm.apellido.length < 2 -> "El apellido debe tener al menos 2 caracteres"
-            !currentForm.apellido.all { it.isLetter() || it.isWhitespace() } -> "El apellido solo debe contener letras"
-            else -> null
+        if (!currentForm.apellido.matches(soloLetrasRegex)) {
+            _mensajeError.value = "El apellido debe tener al menos 2 letras y sin números."
+            return
         }
 
-        // 3. RUT: Máximo 12 caracteres (ej: 12.345.678-K), no letras al azar y mínimo 8
-        val rutClean = currentForm.rut.replace(".", "").replace("-", "")
-        val esRutValido = currentForm.rut.matches(Regex("^[0-9kK.-]+$")) // Solo números, K, puntos y guión
-
-        val rutError = when {
-            currentForm.rut.isBlank() -> "El RUT es obligatorio"
-            currentForm.rut.length > 12 -> "El RUT no puede tener más de 12 caracteres"
-            !esRutValido -> "El RUT solo puede contener números, puntos, guión o 'K'"
-            rutClean.length < 8 -> "Ingresa un RUT válido (ej: 12.345.678-K)"
-            else -> null
+        if (currentForm.rut.length !in 9..12) {
+            _mensajeError.value = "El RUT debe tener entre 9 y 12 caracteres."
+            return
         }
 
-        // 4. Email
-        val emailError = when {
-            currentForm.email.isBlank() -> "El email es obligatorio"
-            !android.util.Patterns.EMAIL_ADDRESS.matcher(currentForm.email).matches() -> "Formato de email inválido"
-            else -> null
+        val emailRegex = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$".toRegex()
+        if (!currentForm.email.matches(emailRegex)) {
+            _mensajeError.value = "El correo debe tener un formato válido (ej: ejemplo@gmail.com)."
+            return
         }
 
-        // 5. Teléfono: Solo números, entre 8 y 9 dígitos
-        val telefonoError = when {
-            currentForm.telefono.isBlank() -> "El teléfono es obligatorio"
-            !currentForm.telefono.all { it.isDigit() } -> "El teléfono solo debe contener números"
-            currentForm.telefono.length < 9 || currentForm.telefono.length > 11 -> "El teléfono debe tener entre 8 y 9 dígitos"
-            else -> null
+        if (currentForm.telefono.length != 8 || !currentForm.telefono.all { it.isDigit() }) {
+            _mensajeError.value = "El teléfono debe contener exactamente 8 dígitos."
+            return
         }
 
-        // 6. Región
-        val regionError = if (currentForm.region.isBlank()) "Debes seleccionar una región" else null
+        _mensajeError.value = null
 
-        _errors.value = UsuarioFormError(
-            nombre = nombreError,
-            apellido = apellidoError,
-            rut = rutError,
-            email = emailError,
-            telefono = telefonoError,
-            region = regionError
-        )
+        viewModelScope.launch {
+            // Inicializamos la BD usando el contexto recibido
+            val db = AppDatabase.getDatabase(context)
+            val repository = UsuarioRepository(db.usuarioDao())
 
-    }
-
-    fun submit() {
-        validate()
-        if (_errors.value.isValid()) {
-            val guardado = repository.guardarUsuario(_form.value)
-            _registroExitoso.value = guardado
+            val nuevoUsuario = UsuarioEntity(
+                nombre = currentForm.nombre,
+                apellido = currentForm.apellido,
+                rut = currentForm.rut,
+                email = currentForm.email,
+                telefono = "+56 9 ${currentForm.telefono}",
+                region = currentForm.region,
+                tipoUsuario = currentForm.tipoUsuario,
+                especialidad = currentForm.especialidad
+            )
+            repository.guardarUsuario(nuevoUsuario)
+            _registroExitoso.value = true
         }
     }
 }
