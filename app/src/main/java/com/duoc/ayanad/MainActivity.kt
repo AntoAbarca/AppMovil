@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.duoc.ayanad.ui.Perfil
 import androidx.activity.viewModels
 import com.duoc.ayanad.ui.Registro
 import com.duoc.ayanad.ui.theme.AyanadTheme
@@ -15,6 +16,7 @@ import com.duoc.ayanad.ui.InicioAplicador
 import com.duoc.ayanad.ui.MisOfertasS
 import com.duoc.ayanad.ui.MisSolicitudes
 
+
 class MainActivity : ComponentActivity() {
 
     private val viewModelForm = UsuarioFormViewModel()
@@ -25,7 +27,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AyanadTheme {
-                Registro(viewModel = viewModelForm)
+                Perfil()
             }
         }
     }
@@ -36,3 +38,4 @@ class MainActivity : ComponentActivity() {
 //InicioProductor() a la pantalla 3
 //MisSolicitudes() a la pantalla 4
 //InicioAplicador() a la  pantalla 7
+//Perfil() a la ultima pagina

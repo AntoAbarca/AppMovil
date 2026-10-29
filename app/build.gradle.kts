@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.devtools.ksp") // Agrega esta línea
+    id("com.google.devtools.ksp")
 }
 
 android {
