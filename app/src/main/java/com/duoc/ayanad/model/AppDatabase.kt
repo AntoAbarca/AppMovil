@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [UsuarioEntity::class, SolicitudEntity::class, OfertaEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -27,7 +27,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "tecmundo_db"
                 )
                     .allowMainThreadQueries()
-                    .fallbackToDestructiveMigration() // versión 1 -> 2 borra los datos de prueba
+                    .fallbackToDestructiveMigration() // cambio de versión borra los datos de prueba
                     .build()
                 INSTANCE = instance
                 instance

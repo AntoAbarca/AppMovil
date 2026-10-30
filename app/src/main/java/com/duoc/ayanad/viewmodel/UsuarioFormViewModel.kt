@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.duoc.ayanad.model.AppDatabase
 import com.duoc.ayanad.model.UsuarioEntity
+import com.duoc.ayanad.repository.SesionManager
 import com.duoc.ayanad.repository.UsuarioRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -96,6 +97,11 @@ class UsuarioFormViewModel : ViewModel() {
 
         if (currentForm.password.length < 6) {
             _mensajeError.value = "La contraseña debe tener al menos 6 caracteres."
+            return
+        }
+
+        if (currentForm.email.trim().equals(SesionManager.ADMIN_EMAIL, ignoreCase = true)) {
+            _mensajeError.value = "Ese correo está reservado. Usa otro."
             return
         }
 

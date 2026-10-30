@@ -65,6 +65,17 @@ class LoginViewModel : ViewModel() {
         if (!_errors.value.isValid()) return
 
         val login = _form.value.usuario.trim()
+
+        // Administrador: cuenta fija, no pasa por la base de datos
+        if (login.equals(SesionManager.ADMIN_EMAIL, ignoreCase = true) &&
+            _form.value.password == SesionManager.ADMIN_PASSWORD
+        ) {
+            SesionManager.iniciarAdmin()
+            _errorLogin.value = null
+            _loginExitoso.value = true
+            return
+        }
+
         val hash = UsuarioRepository.hashear(_form.value.password)
 
         viewModelScope.launch {

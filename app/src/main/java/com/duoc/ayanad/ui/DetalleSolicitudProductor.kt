@@ -66,7 +66,8 @@ fun DetalleSolicitudProductor(
                 TarjetaOferta(
                     oferta = oferta,
                     onAceptar = { viewModel.aceptarOferta(oferta.id) },
-                    onComunicarse = { onComunicarse(oferta) }
+                    onComunicarse = { onComunicarse(oferta) },
+                    onCalificar = { viewModel.calificarOferta(oferta.id, it) }
                 )
             }
         }
@@ -74,7 +75,12 @@ fun DetalleSolicitudProductor(
 }
 
 @Composable
-private fun TarjetaOferta(oferta: Oferta, onAceptar: () -> Unit, onComunicarse: () -> Unit) {
+private fun TarjetaOferta(
+    oferta: Oferta,
+    onAceptar: () -> Unit,
+    onComunicarse: () -> Unit,
+    onCalificar: (Int) -> Unit
+) {
     TarjetaTm {
         Text(oferta.aplicador, fontWeight = FontWeight.Bold, fontSize = 16.sp)
         Spacer(Modifier.height(4.dp))
@@ -86,6 +92,25 @@ private fun TarjetaOferta(oferta: Oferta, onAceptar: () -> Unit, onComunicarse: 
             )
             Spacer(Modifier.width(4.dp))
             Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFB300), modifier = Modifier.size(16.dp))
+        }
+        if (oferta.estado == "Aceptada") {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                if (oferta.calificacionDada > 0) "Tu calificación a este aplicador:" else "Califica el trabajo del aplicador:",
+                fontSize = 14.sp
+            )
+            Row {
+                for (n in 1..5) {
+                    IconButton(onClick = { onCalificar(n) }, modifier = Modifier.size(40.dp)) {
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = "$n estrellas",
+                            tint = if (n <= oferta.calificacionDada) Color(0xFFFFB300) else Color.LightGray,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                }
+            }
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {

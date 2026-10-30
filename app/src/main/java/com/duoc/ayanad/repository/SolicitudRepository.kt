@@ -40,14 +40,14 @@ class SolicitudRepository(db: AppDatabase) {
 
     // ---------- Ofertas ----------
     fun obtenerOfertas(solicitudId: Int): List<Oferta> =
-        ofertaDao.getDeSolicitud(solicitudId).map { it.toDomain() }
+        ofertaDao.getDeSolicitud(solicitudId).map { aDominio(it) }
 
     fun obtenerOfertaDe(solicitudId: Int, aplicadorId: Long): Oferta? =
-        ofertaDao.getPorSolicitudYAplicador(solicitudId, aplicadorId)?.toDomain()
+        ofertaDao.getPorSolicitudYAplicador(solicitudId, aplicadorId)?.let { aDominio(it) }
 
     fun obtenerOfertasDeAplicador(aplicadorId: Long): List<OfertaDetalle> =
         ofertaDao.getDeAplicador(aplicadorId).map { o ->
-            OfertaDetalle(o.toDomain(), obtenerSolicitud(o.solicitudId))
+            OfertaDetalle(aDominio(o), obtenerSolicitud(o.solicitudId))
         }
 
     /** Crea la oferta, o actualiza el precio si el aplicador ya había ofertado. */
@@ -85,6 +85,31 @@ class SolicitudRepository(db: AppDatabase) {
         solicitudDao.actualizarEstado(oferta.solicitudId, "Finalizada")
     }
 
+    /** El productor califica (1 a 5) el trabajo de una oferta que ya aceptó. */
+    fun calificarOferta(ofertaId: Int, estrellas: Int) {
+        val oferta = ofertaDao.getPorId(ofertaId) ?: return
+        if (oferta.estado != "Aceptada" || estrellas !in 1..5) return
+        ofertaDao.calificar(ofertaId, estrellas)
+    }
+
+    /** Promedio y cantidad de calificaciones que ha recibido un aplicador. */
+    fun resumenCalificacion(aplicadorId: Long): Pair<Double, Int> {
+        val promedio = ofertaDao.promedioDeAplicador(aplicadorId) ?: 0.0
+        return Pair(Math.round(promedio * 10) / 10.0, ofertaDao.contarCalificaciones(aplicadorId))
+    }
+
+    private fun aDominio(o: OfertaEntity): Oferta = Oferta(
+        id = o.id,
+        solicitudId = o.solicitudId,
+        aplicador = o.aplicador,
+        precioPorHa = o.precioPorHa,
+        calificacion = resumenCalificacion(o.aplicadorId).first,
+        estado = o.estado,
+        aplicadorId = o.aplicadorId,
+        telefono = o.telefono,
+        calificacionDada = o.calificacion
+    )
+
     // ---------- Contadores de las pantallas de inicio ----------
     fun contarSolicitudesActivas(productorId: Long): Int = solicitudDao.contarActivas(productorId)
     fun contarOfertasNuevas(productorId: Long): Int = ofertaDao.contarNuevasDeProductor(productorId)
@@ -104,15 +129,4 @@ private fun SolicitudEntity.toDomain() = Solicitud(
     distanciaKm = distanciaKm,
     estado = estado,
     productorId = productorId
-)
-
-private fun OfertaEntity.toDomain() = Oferta(
-    id = id,
-    solicitudId = solicitudId,
-    aplicador = aplicador,
-    precioPorHa = precioPorHa,
-    calificacion = calificacion,
-    estado = estado,
-    aplicadorId = aplicadorId,
-    telefono = telefono
 )

@@ -28,6 +28,6 @@ data class OfertaEntity(
     val aplicador: String,
     val telefono: String,
     val precioPorHa: Int,
-    val calificacion: Double = 0.0,
+    val calificacion: Int = 0,   // estrellas (1-5) que puso el productor; 0 = sin calificar
     val estado: String = "Enviada"   // Enviada / Aceptada / Rechazada
 )

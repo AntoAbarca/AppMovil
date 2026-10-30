@@ -1,5 +1,6 @@
 package com.duoc.ayanad.ui
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -7,7 +8,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
+import com.duoc.ayanad.model.AppDatabase
 import com.duoc.ayanad.repository.SesionManager
+import com.duoc.ayanad.viewmodel.AdminViewModel
 import com.duoc.ayanad.viewmodel.LoginViewModel
 import com.duoc.ayanad.viewmodel.PerfilViewModel
 import com.duoc.ayanad.viewmodel.SolicitudViewModel
@@ -22,22 +25,33 @@ import com.duoc.ayanad.viewmodel.UsuarioFormViewModel
  *  11 perfil
  */
 
-private fun rutaInicio(tipo: String) = if (tipo == "Aplicador") "inicioAplicador" else "inicioProductor"
+private fun rutaInicio(tipo: String) = when (tipo) {
+    SesionManager.TIPO_ADMIN -> "administracion"
+    "Aplicador" -> "inicioAplicador"
+    else -> "inicioProductor"
+}
 
-private fun rutaDeArranque(): String =
-    if (SesionManager.haySesion()) rutaInicio(SesionManager.tipo) else "login"
+private fun rutaDeArranque(context: Context): String {
+    // Si el usuario guardado en la sesión fue eliminado por el administrador, se cierra la sesión
+    if (SesionManager.haySesion() && !SesionManager.esAdmin) {
+        val existe = AppDatabase.getDatabase(context).usuarioDao().getPorId(SesionManager.usuarioId) != null
+        if (!existe) SesionManager.cerrar()
+    }
+    return if (SesionManager.haySesion()) rutaInicio(SesionManager.tipo) else "login"
+}
 
 @Composable
 fun AppNavegacion(
     loginVM: LoginViewModel,
     registroVM: UsuarioFormViewModel,
     solicitudVM: SolicitudViewModel,
-    perfilVM: PerfilViewModel
+    perfilVM: PerfilViewModel,
+    adminVM: AdminViewModel
 ) {
     val context = LocalContext.current
 
     // Pila de pantallas; se guarda para sobrevivir a rotaciones
-    var pila by rememberSaveable { mutableStateOf(arrayListOf(rutaDeArranque())) }
+    var pila by rememberSaveable { mutableStateOf(arrayListOf(rutaDeArranque(context))) }
 
     fun ir(ruta: String) { pila = ArrayList(pila + ruta) }
     fun volver() { if (pila.size > 1) pila = ArrayList(pila.dropLast(1)) }
@@ -63,6 +77,16 @@ fun AppNavegacion(
     val partes = ruta.split("/")
     val id = partes.getOrNull(1)?.toIntOrNull() ?: 0
 
+    // Botón "home" de la barra inferior en todas las pantallas, salvo login, registro y los menús principales
+    val sinHome = partes[0] in listOf("login", "registro", "inicioProductor", "inicioAplicador", "administracion")
+    val homeLambda: (() -> Unit)? = if (sinHome) null else ({ irAInicio() })
+    val perfilLambda: (() -> Unit)? =
+        if (partes[0] in listOf("login", "registro", "perfil", "administracion")) null else ({ ir("perfil") })
+
+    CompositionLocalProvider(
+        LocalIrAInicio provides homeLambda,
+        LocalIrAPerfil provides perfilLambda
+    ) {
     when (partes[0]) {
 
         // 1
@@ -108,6 +132,7 @@ fun AppNavegacion(
             LaunchedEffect(ruta) { solicitudVM.cargarMisSolicitudes() }
             MisSolicitudes(
                 solicitudes = lista,
+                onVolver = { volver() },
                 onNuevaSolicitudClick = { ir("nuevaSolicitud") },
                 onSolicitudClick = { ir("detalleProductor/${it.id}") }
             )
@@ -171,9 +196,19 @@ fun AppNavegacion(
             LaunchedEffect(ruta) { solicitudVM.cargarMisOfertas() }
             MisOfertas(
                 ofertas = lista,
+                onVolver = { volver() },
                 onOfertaClick = { ir("detalleAplicador/${it.oferta.solicitudId}") }
             )
         }
+
+        // Administración (solo la cuenta admin)
+        "administracion" -> Administracion(
+            viewModel = adminVM,
+            onCerrarSesion = {
+                SesionManager.cerrar()
+                reiniciar("login")
+            }
+        )
 
         // 11
         "perfil" -> Perfil(
@@ -185,5 +220,6 @@ fun AppNavegacion(
                 reiniciar("login")
             }
         )
+    }
     }
 }

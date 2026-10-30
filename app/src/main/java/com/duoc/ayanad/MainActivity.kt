@@ -8,6 +8,7 @@ import androidx.activity.viewModels
 import com.duoc.ayanad.repository.SesionManager
 import com.duoc.ayanad.ui.AppNavegacion
 import com.duoc.ayanad.ui.theme.AyanadTheme
+import com.duoc.ayanad.viewmodel.AdminViewModel
 import com.duoc.ayanad.viewmodel.LoginViewModel
 import com.duoc.ayanad.viewmodel.PerfilViewModel
 import com.duoc.ayanad.viewmodel.SolicitudViewModel
@@ -19,6 +20,7 @@ class MainActivity : ComponentActivity() {
     private val viewModelLogin: LoginViewModel by viewModels()
     private val viewModelSolicitud: SolicitudViewModel by viewModels()
     private val viewModelPerfil: PerfilViewModel by viewModels()
+    private val viewModelAdmin: AdminViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,7 +32,8 @@ class MainActivity : ComponentActivity() {
                     loginVM = viewModelLogin,
                     registroVM = viewModelForm,
                     solicitudVM = viewModelSolicitud,
-                    perfilVM = viewModelPerfil
+                    perfilVM = viewModelPerfil,
+                    adminVM = viewModelAdmin
                 )
             }
         }

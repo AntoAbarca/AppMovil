@@ -33,6 +33,32 @@ val REGIONES = listOf(
 
 val TIPOS_PRODUCTO = listOf("Granulada", "Líquida")
 
+// Los pone AppNavegacion: si son null la pantalla no muestra el botón de inicio/perfil
+val LocalIrAInicio = compositionLocalOf<(() -> Unit)?> { null }
+val LocalIrAPerfil = compositionLocalOf<(() -> Unit)?> { null }
+
+/** Campos de texto con fondo blanco y letras negras (se leen igual en modo claro y oscuro). */
+@Composable
+fun tmCamposColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Color.Black,
+    unfocusedTextColor = Color.Black,
+    errorTextColor = Color.Black,
+    disabledTextColor = Color.Black,
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    errorContainerColor = Color.White,
+    disabledContainerColor = Color.White,
+    cursorColor = TmAzul,
+    focusedBorderColor = TmAzul,
+    unfocusedBorderColor = TmBorde,
+    focusedLabelColor = TmAzul,
+    unfocusedLabelColor = Color.DarkGray,
+    focusedTrailingIconColor = Color.Black,
+    unfocusedTrailingIconColor = Color.Black,
+    focusedPrefixColor = Color.Black,
+    unfocusedPrefixColor = Color.Black
+)
+
 
 @Composable
 fun EncabezadoTm(titulo: String, onVolver: (() -> Unit)? = null) {
@@ -51,18 +77,26 @@ fun EncabezadoTm(titulo: String, onVolver: (() -> Unit)? = null) {
         } else {
             Spacer(Modifier.width(12.dp))
         }
-        Text(titulo, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(
+            titulo,
+            color = Color.White,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
 @Composable
 fun BarraNavegacionTm(onInicio: () -> Unit = {}, onPerfil: () -> Unit = {}) {
+    val irInicio = LocalIrAInicio.current
+    val irPerfil = LocalIrAPerfil.current
     NavigationBar(containerColor = Color.White) {
         NavigationBarItem(selected = false, onClick = {},
             icon = { Icon(Icons.Default.Info, contentDescription = "Información") })
-        NavigationBarItem(selected = false, onClick = onInicio,
+        NavigationBarItem(selected = false, onClick = irInicio ?: onInicio,
             icon = { Icon(Icons.Default.Home, contentDescription = "Inicio") })
-        NavigationBarItem(selected = false, onClick = onPerfil,
+        NavigationBarItem(selected = false, onClick = irPerfil ?: onPerfil,
             icon = { Icon(Icons.Default.Person, contentDescription = "Perfil") })
     }
 }
@@ -112,6 +146,7 @@ fun SelectorTm(
                 label = { Text(etiqueta) },
                 trailingIcon = { Icon(Icons.Default.KeyboardArrowDown, contentDescription = null) },
                 isError = error != null,
+                colors = tmCamposColors(),
                 modifier = Modifier.fillMaxWidth()
             )
             // Capa transparente para capturar el click sobre el campo
@@ -120,10 +155,14 @@ fun SelectorTm(
                     .matchParentSize()
                     .clickable { abierto = true }
             )
-            DropdownMenu(expanded = abierto, onDismissRequest = { abierto = false }) {
+            DropdownMenu(
+                expanded = abierto,
+                onDismissRequest = { abierto = false },
+                modifier = Modifier.background(Color.White)
+            ) {
                 opciones.forEach { opcion ->
                     DropdownMenuItem(
-                        text = { Text(opcion) },
+                        text = { Text(opcion, color = Color.Black) },
                         onClick = { onSeleccion(opcion); abierto = false }
                     )
                 }

@@ -48,6 +48,7 @@ fun NuevaSolicitud(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             OutlinedTextField(
+                colors = tmCamposColors(),
                 value = form.superficie,
                 onValueChange = viewModel::onSuperficieChange,
                 label = { Text("Superficie (ha)") },
@@ -109,6 +110,7 @@ fun NuevaSolicitud(
             }
 
             OutlinedTextField(
+                colors = tmCamposColors(),
                 value = form.comentarios,
                 onValueChange = viewModel::onComentariosChange,
                 label = { Text("Comentarios adicionales") },

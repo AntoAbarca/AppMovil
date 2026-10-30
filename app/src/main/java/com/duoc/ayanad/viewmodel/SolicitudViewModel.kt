@@ -130,6 +130,11 @@ class SolicitudViewModel(application: Application) : AndroidViewModel(applicatio
         _solicitudActual.value?.let { cargarDetalle(it.id) }
     }
 
+    fun calificarOferta(ofertaId: Int, estrellas: Int) {
+        repository.calificarOferta(ofertaId, estrellas)
+        _solicitudActual.value?.let { cargarDetalle(it.id) }
+    }
+
     // =====================================================
     // Pantalla 8: Solicitudes cercanas (aplicador)
     // =====================================================

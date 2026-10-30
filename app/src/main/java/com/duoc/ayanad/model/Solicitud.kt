@@ -40,7 +40,8 @@ data class Oferta(
     val calificacion: Double,
     val estado: String = "Enviada",
     val aplicadorId: Long = 0L,
-    val telefono: String = ""
+    val telefono: String = "",
+    val calificacionDada: Int = 0   // estrellas que el productor puso a este trabajo
 ) {
     val aceptada: Boolean get() = estado == "Aceptada"
 }

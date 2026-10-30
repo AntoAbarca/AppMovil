@@ -65,21 +65,8 @@ fun Registro(
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(scrollState)
     ) {
-        // Franja superior azul
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(110.dp)
-                .background(AzulTecMundo),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Crear tu cuenta",
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
+        // Franja superior azul con flecha para volver
+        EncabezadoTm("Crear tu cuenta", onVolver)
 
         Column(
             modifier = Modifier

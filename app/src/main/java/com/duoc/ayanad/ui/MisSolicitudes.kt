@@ -25,31 +25,23 @@ private fun estiloSolicitud(estado: String): Pair<Color, Color> = when (estado) 
 @Composable
 fun MisSolicitudes(
     solicitudes: List<Solicitud> = emptyList(),
+    onVolver: (() -> Unit)? = null,
     onNuevaSolicitudClick: () -> Unit = {},
     onSolicitudClick: (Solicitud) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
 
+    Scaffold(
+        containerColor = TmFondo,
+        topBar = { EncabezadoTm("Mis solicitudes", onVolver) },
+        bottomBar = { BarraNavegacionTm() }
+    ) { padding ->
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F7FA))
+            .padding(padding)
             .verticalScroll(scrollState)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(100.dp)
-                .background(Color(0xFF2962FF)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Mis solicitudes",
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
 
         Column(
             modifier = Modifier
@@ -92,6 +84,7 @@ fun MisSolicitudes(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    }
     }
 }
 

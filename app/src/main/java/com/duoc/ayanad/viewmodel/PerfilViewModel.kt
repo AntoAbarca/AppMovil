@@ -10,6 +10,7 @@ import com.duoc.ayanad.repository.UsuarioRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 data class PerfilForm(
     val nombre: String = "",
@@ -49,6 +50,13 @@ class PerfilViewModel : ViewModel() {
     private val _mensaje = MutableStateFlow<String?>(null)
     val mensaje: StateFlow<String?> = _mensaje
 
+    // Solo los aplicadores tienen clasificación (promedio de las estrellas que les ponen los productores)
+    private val _esAplicador = MutableStateFlow(false)
+    val esAplicador: StateFlow<Boolean> = _esAplicador
+
+    private val _clasificacion = MutableStateFlow("Sin calificaciones")
+    val clasificacion: StateFlow<String> = _clasificacion
+
     /** Carga desde Room al usuario que inició sesión. */
     fun cargarPerfil(context: Context) {
         viewModelScope.launch {
@@ -57,6 +65,14 @@ class PerfilViewModel : ViewModel() {
             val repo = UsuarioRepository(AppDatabase.getDatabase(context).usuarioDao())
             val u = repo.obtenerPorId(SesionManager.usuarioId)
             usuarioActual = u
+            _esAplicador.value = u?.tipoUsuario == "Aplicador"
+            if (u != null && u.tipoUsuario == "Aplicador") {
+                val ofertaDao = AppDatabase.getDatabase(context).ofertaDao()
+                val cantidad = ofertaDao.contarCalificaciones(u.id)
+                val promedio = ofertaDao.promedioDeAplicador(u.id) ?: 0.0
+                _clasificacion.value = if (cantidad == 0) "Sin calificaciones"
+                else String.format(Locale.US, "%.1f / 5  (%d)", promedio, cantidad)
+            }
             if (u == null) {
                 _form.value = PerfilForm()
                 _mensaje.value = "Inicia sesión para ver tu perfil."

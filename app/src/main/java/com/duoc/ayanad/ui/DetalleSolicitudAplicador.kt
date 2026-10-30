@@ -87,6 +87,7 @@ fun DetalleSolicitudAplicador(
                 } else {
                     OutlinedTextField(
                         value = precio,
+                        colors = tmCamposColors(),
                         onValueChange = viewModel::onPrecioOfertaChange,
                         label = { Text("Precio por ha (CLP)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

@@ -20,6 +20,9 @@ interface UsuarioDao {
     @Insert
     fun insertUsuario(usuario: UsuarioEntity)
 
+    @Query("DELETE FROM usuarios WHERE id = :id")
+    fun eliminar(id: Long)
+
     @Update
     fun actualizarUsuario(usuario: UsuarioEntity)
 }

@@ -1,5 +1,6 @@
 package com.duoc.ayanad.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -8,7 +9,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -47,13 +50,28 @@ fun Login(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Surface(shape = RoundedCornerShape(24.dp), color = Color.White) {
-                    // Reemplazar por Image(painterResource(R.drawable.logo_tecmundo), ...)
-                    Text(
-                        text = "TECMUNDO",
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(horizontal = 32.dp, vertical = 24.dp)
-                    )
+                    // Si existe res/drawable/logo_tecmundo.png se muestra el logo; si no, el texto
+                    val logoId = remember {
+                        context.resources.getIdentifier("logo_tecmundo", "drawable", context.packageName)
+                    }
+                    if (logoId != 0) {
+                        Image(
+                            painter = painterResource(id = logoId),
+                            contentDescription = "Logo TecMundo",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .padding(24.dp)
+                                .width(220.dp)
+                                .heightIn(max = 120.dp)
+                        )
+                    } else {
+                        Text(
+                            text = "TECMUNDO",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(horizontal = 32.dp, vertical = 24.dp)
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 Text("Productores y aplicadores", color = Color.White)

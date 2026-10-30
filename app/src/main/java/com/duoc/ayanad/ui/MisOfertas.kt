@@ -24,30 +24,22 @@ private fun estiloOferta(estado: String): Pair<Color, Color> = when (estado) {
 @Composable
 fun MisOfertas(
     ofertas: List<OfertaDetalle> = emptyList(),
+    onVolver: (() -> Unit)? = null,
     onOfertaClick: (OfertaDetalle) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
 
+    Scaffold(
+        containerColor = TmFondo,
+        topBar = { EncabezadoTm("Mis ofertas", onVolver) },
+        bottomBar = { BarraNavegacionTm() }
+    ) { padding ->
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F7FA))
+            .padding(padding)
             .verticalScroll(scrollState)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(100.dp)
-                .background(Color(0xFF2962FF)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Mis ofertas",
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
 
         Column(
             modifier = Modifier
@@ -73,6 +65,7 @@ fun MisOfertas(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    }
     }
 }
 
