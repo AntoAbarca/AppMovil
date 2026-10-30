@@ -14,11 +14,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.duoc.ayanad.model.Solicitud
+
+private fun estiloSolicitud(estado: String): Pair<Color, Color> = when (estado) {
+    "Pendiente" -> Pair(Color(0xFFFFA726), Color(0xFFFFF3E0))
+    "Con ofertas" -> Pair(Color(0xFF1976D2), Color(0xFFE3F2FD))
+    else -> Pair(Color(0xFF388E3C), Color(0xFFE8F5E9))
+}
 
 @Composable
 fun MisSolicitudes(
+    solicitudes: List<Solicitud> = emptyList(),
     onNuevaSolicitudClick: () -> Unit = {},
-    onSolicitudClick: () -> Unit = {}
+    onSolicitudClick: (Solicitud) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
 
@@ -28,7 +36,6 @@ fun MisSolicitudes(
             .background(Color(0xFFF5F7FA))
             .verticalScroll(scrollState)
     ) {
-        // Franja superior azul característica de TecMundo
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -49,7 +56,6 @@ fun MisSolicitudes(
                 .fillMaxWidth()
                 .padding(20.dp)
         ) {
-            // Botón superior "+ Nueva solicitud"
             Button(
                 onClick = onNuevaSolicitudClick,
                 modifier = Modifier
@@ -68,42 +74,23 @@ fun MisSolicitudes(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Tarjeta 1: Pendiente
-            SolicitudCard(
-                estado = "Pendiente",
-                colorEstado = Color(0xFFFFA726), // Naranja suave
-                fondoEstado = Color(0xFFFFF3E0),
-                producto = "granulada",
-                superficie = "10 ha",
-                horario = "Diurna",
-                onClick = onSolicitudClick
-            )
+            if (solicitudes.isEmpty()) {
+                Text("Aún no has publicado solicitudes.", color = Color.Gray)
+            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Tarjeta 2: Con ofertas
-            SolicitudCard(
-                estado = "Con ofertas",
-                colorEstado = Color(0xFF1976D2), // Azul suave
-                fondoEstado = Color(0xFFE3F2FD),
-                producto = "líquida",
-                superficie = "50 ha",
-                horario = "Diurna",
-                onClick = onSolicitudClick
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Tarjeta 3: Finalizada
-            SolicitudCard(
-                estado = "Finalizada",
-                colorEstado = Color(0xFF388E3C), // Verde suave
-                fondoEstado = Color(0xFFE8F5E9),
-                producto = "líquida",
-                superficie = "14 ha",
-                horario = "Nocturna",
-                onClick = onSolicitudClick
-            )
+            solicitudes.forEach { s ->
+                val (color, fondo) = estiloSolicitud(s.estado)
+                SolicitudCard(
+                    estado = s.estado,
+                    colorEstado = color,
+                    fondoEstado = fondo,
+                    producto = s.tipoProducto,
+                    superficie = "${formatoHa(s.superficie)} ha",
+                    horario = s.aplicacion,
+                    onClick = { onSolicitudClick(s) }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
     }
 }

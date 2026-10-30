@@ -80,7 +80,10 @@ private fun TarjetaOferta(oferta: Oferta, onAceptar: () -> Unit, onComunicarse: 
         Spacer(Modifier.height(4.dp))
         Text("Precio por ha: ${formatoCLP(oferta.precioPorHa)} CLP", fontSize = 14.sp)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Calificación: ${oferta.calificacion}", color = Color.Gray, fontSize = 14.sp)
+            Text(
+                if (oferta.calificacion > 0) "Calificación: ${oferta.calificacion}" else "Sin calificación",
+                color = Color.Gray, fontSize = 14.sp
+            )
             Spacer(Modifier.width(4.dp))
             Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFB300), modifier = Modifier.size(16.dp))
         }
@@ -88,10 +91,17 @@ private fun TarjetaOferta(oferta: Oferta, onAceptar: () -> Unit, onComunicarse: 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Button(
                 onClick = onAceptar,
-                enabled = !oferta.aceptada,
+                enabled = oferta.estado == "Enviada",
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = TmAzul)
-            ) { Text(if (oferta.aceptada) "Aceptada" else "Aceptar oferta", color = Color.White, fontSize = 13.sp) }
+            ) { Text(
+                    when (oferta.estado) {
+                        "Aceptada" -> "Aceptada"
+                        "Rechazada" -> "Rechazada"
+                        else -> "Aceptar oferta"
+                    },
+                    color = Color.White, fontSize = 13.sp
+                ) }
             OutlinedButton(onClick = onComunicarse, modifier = Modifier.weight(1f)) {
                 Text("Comunicarse", color = TmAzul, fontSize = 13.sp)
             }

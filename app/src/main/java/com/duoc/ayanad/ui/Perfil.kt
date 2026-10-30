@@ -4,34 +4,40 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.duoc.ayanad.viewmodel.PerfilViewModel
 
 @Composable
 fun Perfil(
-    nombre: String = "Nombre Ejemplo",
-    apellido: String = "Apellido Ejemplo",
-    rut: String = "11.111.111-1",
-    email: String = "holasoyuncorreo@correo.zl",
-    telefono: String = "+5691234567",
-    region: String = "Región Metropolitana",
-    clasificacion: String = "4.6",
+    viewModel: PerfilViewModel,
+    clasificacion: String = "—",
     onVolver: (() -> Unit)? = null,
     onInicio: () -> Unit = {},
-    onPerfil: () -> Unit = {}
+    onPerfil: () -> Unit = {},
+    onCerrarSesion: (() -> Unit)? = null
 ) {
+    val context = LocalContext.current
+    val form by viewModel.form.collectAsState()
+    val errors by viewModel.errors.collectAsState()
+    val mensaje by viewModel.mensaje.collectAsState()
+
+    LaunchedEffect(Unit) { viewModel.cargarPerfil(context) }
+
     Scaffold(
         containerColor = TmFondo,
         topBar = { EncabezadoTm("Mi perfil", onVolver) },
@@ -45,7 +51,6 @@ fun Perfil(
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Foto de perfil (de relleno, la pauta no pide cámara)
             Box(
                 modifier = Modifier
                     .size(110.dp)
@@ -63,21 +68,32 @@ fun Perfil(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Datos del usuario
             TarjetaTm {
                 Text("Datos", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Spacer(modifier = Modifier.height(12.dp))
-                CampoDato("Nombre", nombre)
-                CampoDato("Apellido", apellido)
-                CampoDato("RUT", rut)
-                CampoDato("Email", email)
-                CampoDato("Teléfono", telefono)
-                CampoDato("Región", region, conFlecha = true)
+
+                CampoPerfil("Nombre", form.nombre, viewModel::onNombreChange, errors.nombre)
+                CampoPerfil("Apellido", form.apellido, viewModel::onApellidoChange, errors.apellido)
+                CampoPerfil("RUT", form.rut, viewModel::onRutChange, errors.rut)
+                CampoPerfil(
+                    "Email", form.email, viewModel::onEmailChange, errors.email,
+                    teclado = KeyboardType.Email
+                )
+                CampoPerfil(
+                    "Teléfono", form.telefono, viewModel::onTelefonoChange, errors.telefono,
+                    teclado = KeyboardType.Number, prefijo = "+56 9 "
+                )
+                SelectorTm(
+                    etiqueta = "Región",
+                    valor = form.region,
+                    opciones = REGIONES,
+                    onSeleccion = viewModel::onRegionChange,
+                    error = errors.region
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Clasificación
             TarjetaTm {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
@@ -92,23 +108,55 @@ fun Perfil(
                     Icon(Icons.Default.Star, contentDescription = null, tint = TmAzul)
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = { viewModel.guardarCambios(context) },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = TmAzul)
+            ) {
+                Text("Guardar cambios", color = Color.White, fontSize = 16.sp)
+            }
+
+            mensaje?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(it, color = TmAzul, fontSize = 14.sp)
+            }
+
+            if (onCerrarSesion != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onCerrarSesion,
+                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                ) {
+                    Text("Cerrar sesión", color = TmAzul, fontSize = 16.sp)
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun CampoDato(etiqueta: String, valor: String, conFlecha: Boolean = false) {
+private fun CampoPerfil(
+    etiqueta: String,
+    valor: String,
+    onChange: (String) -> Unit,
+    error: String?,
+    teclado: KeyboardType = KeyboardType.Text,
+    prefijo: String? = null
+) {
     OutlinedTextField(
         value = valor,
-        onValueChange = {},
-        readOnly = true,
+        onValueChange = onChange,
         label = { Text(etiqueta) },
-        trailingIcon = if (conFlecha) {
-            ({ Icon(Icons.Default.KeyboardArrowDown, contentDescription = null) })
-        } else null,
+        prefix = prefijo?.let { { Text(it) } },
+        keyboardOptions = KeyboardOptions(keyboardType = teclado),
+        isError = error != null,
+        supportingText = error?.let { { Text(it, color = Color.Red) } },
         singleLine = true,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 8.dp)
+            .padding(bottom = 4.dp)
     )
 }

@@ -18,7 +18,8 @@ data class UsuarioForm(
     val telefono: String = "",
     val region: String = "",
     val tipoUsuario: String = "",
-    val especialidad: String = ""
+    val especialidad: String = "",
+    val password: String = ""
 )
 
 class UsuarioFormViewModel : ViewModel() {
@@ -40,14 +41,21 @@ class UsuarioFormViewModel : ViewModel() {
         telefono: String = _form.value.telefono,
         region: String = _form.value.region,
         tipoUsuario: String = _form.value.tipoUsuario,
-        especialidad: String = _form.value.especialidad
+        especialidad: String = _form.value.especialidad,
+        password: String = _form.value.password
     ) {
-        _form.value = UsuarioForm(nombre, apellido, rut, email, telefono, region, tipoUsuario, especialidad)
+        _form.value = UsuarioForm(
+            nombre, apellido, rut, email, telefono, region, tipoUsuario, especialidad, password
+        )
     }
 
-    // Recibe el contexto aquí para inicializar Room al momento de guardar
     fun submitForm(context: Context) {
         val currentForm = _form.value
+
+        if (currentForm.tipoUsuario.isBlank()) {
+            _mensajeError.value = "Selecciona si eres productor o aplicador."
+            return
+        }
 
         val soloLetrasRegex = "^[a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]{2,}$".toRegex()
         if (!currentForm.nombre.matches(soloLetrasRegex)) {
@@ -76,25 +84,56 @@ class UsuarioFormViewModel : ViewModel() {
             return
         }
 
+        if (currentForm.region.isBlank()) {
+            _mensajeError.value = "Selecciona una región."
+            return
+        }
+
+        if (currentForm.tipoUsuario == "Aplicador" && currentForm.especialidad.isBlank()) {
+            _mensajeError.value = "Selecciona una especialidad."
+            return
+        }
+
+        if (currentForm.password.length < 6) {
+            _mensajeError.value = "La contraseña debe tener al menos 6 caracteres."
+            return
+        }
+
         _mensajeError.value = null
 
         viewModelScope.launch {
-            // Inicializamos la BD usando el contexto recibido
             val db = AppDatabase.getDatabase(context)
             val repository = UsuarioRepository(db.usuarioDao())
 
+            if (repository.buscarPorLogin(currentForm.email.trim()) != null) {
+                _mensajeError.value = "Ya existe una cuenta con ese correo."
+                return@launch
+            }
+            if (repository.buscarPorLogin(currentForm.rut.trim()) != null) {
+                _mensajeError.value = "Ya existe una cuenta con ese RUT."
+                return@launch
+            }
+
             val nuevoUsuario = UsuarioEntity(
-                nombre = currentForm.nombre,
-                apellido = currentForm.apellido,
-                rut = currentForm.rut,
-                email = currentForm.email,
+                nombre = currentForm.nombre.trim(),
+                apellido = currentForm.apellido.trim(),
+                rut = currentForm.rut.trim(),
+                email = currentForm.email.trim(),
                 telefono = "+56 9 ${currentForm.telefono}",
                 region = currentForm.region,
                 tipoUsuario = currentForm.tipoUsuario,
-                especialidad = currentForm.especialidad
+                especialidad = currentForm.especialidad,
+                password = UsuarioRepository.hashear(currentForm.password)
             )
             repository.guardarUsuario(nuevoUsuario)
             _registroExitoso.value = true
         }
+    }
+
+    /** Limpia el formulario después de un registro exitoso. */
+    fun reiniciar() {
+        _form.value = UsuarioForm()
+        _mensajeError.value = null
+        _registroExitoso.value = false
     }
 }

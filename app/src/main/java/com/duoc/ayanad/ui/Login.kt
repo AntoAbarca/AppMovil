@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -24,6 +25,8 @@ fun Login(
     val form by viewModel.form.collectAsState()
     val errors by viewModel.errors.collectAsState()
     val loginExitoso by viewModel.loginExitoso.collectAsState()
+    val errorLogin by viewModel.errorLogin.collectAsState()
+    val context = LocalContext.current
 
     LaunchedEffect(loginExitoso) {
         if (loginExitoso) onLoginExitoso()
@@ -67,7 +70,7 @@ fun Login(
             OutlinedTextField(
                 value = form.usuario,
                 onValueChange = { viewModel.onUsuarioChange(it) },
-                label = { Text("Usuario") },
+                label = { Text("Correo o RUT") },
                 isError = errors.usuario != null,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
@@ -89,8 +92,12 @@ fun Login(
                 Text(text = errors.password!!, color = Color.Red, fontSize = 12.sp)
             }
 
+            errorLogin?.let {
+                Text(text = it, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+            }
+
             Button(
-                onClick = { viewModel.submit() },
+                onClick = { viewModel.submit(context) },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2962FF))
             ) {

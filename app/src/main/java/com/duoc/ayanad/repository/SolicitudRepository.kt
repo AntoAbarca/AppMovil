@@ -1,46 +1,118 @@
 package com.duoc.ayanad.repository
 
+import com.duoc.ayanad.model.AppDatabase
 import com.duoc.ayanad.model.Oferta
+import com.duoc.ayanad.model.OfertaDetalle
+import com.duoc.ayanad.model.OfertaEntity
 import com.duoc.ayanad.model.Solicitud
+import com.duoc.ayanad.model.SolicitudEntity
 
-class SolicitudRepository {
+class SolicitudRepository(db: AppDatabase) {
 
-    private val solicitudes = mutableListOf(
-        Solicitud(1, "granulada", 10.0, "Diurna", "Región Metropolitana", true,
-            listOf("Cables", "Torres de alta tensión"), "", 20, "Pendiente"),
-        Solicitud(2, "líquida", 10.0, "Diurna", "Región Metropolitana", true,
-            listOf("Antenas"), "", 20, "Pendiente"),
-        Solicitud(3, "granulada", 10.0, "Diurna", "Región Metropolitana", false,
-            emptyList(), "", 20, "Pendiente"),
-        Solicitud(4, "líquida", 50.0, "Diurna", "Valparaíso", true,
-            emptyList(), "", 85, "Con ofertas")
-    )
+    private val solicitudDao = db.solicitudDao()
+    private val ofertaDao = db.ofertaDao()
 
-    private val ofertas = mutableListOf(
-        Oferta(1, 1, "John Dutton", 25000, 4.6),
-        Oferta(2, 1, "John Dutton", 27000, 4.6),
-        Oferta(3, 1, "John Dutton", 23500, 4.6)
-    )
+    // ---------- Solicitudes ----------
+    fun obtenerSolicitudes(): List<Solicitud> = solicitudDao.getAll().map { it.toDomain() }
 
-    private var nextId = 5
+    fun obtenerSolicitudesDeProductor(productorId: Long): List<Solicitud> =
+        solicitudDao.getDeProductor(productorId).map { it.toDomain() }
 
-    fun obtenerSolicitudes(): List<Solicitud> = solicitudes.toList()
+    fun obtenerSolicitud(id: Int): Solicitud? = solicitudDao.getPorId(id)?.toDomain()
 
-    fun obtenerSolicitud(id: Int): Solicitud? = solicitudes.firstOrNull { it.id == id }
-
-    fun agregarSolicitud(s: Solicitud): Solicitud {
-        val nueva = s.copy(id = nextId++)
-        solicitudes.add(nueva)
-        return nueva
+    fun agregarSolicitud(s: Solicitud, productorId: Long): Solicitud {
+        val id = solicitudDao.insertar(
+            SolicitudEntity(
+                productorId = productorId,
+                tipoProducto = s.tipoProducto,
+                superficie = s.superficie,
+                aplicacion = s.aplicacion,
+                region = s.region,
+                tieneAgua = s.tieneAgua,
+                obstaculos = s.obstaculos.joinToString("|"),
+                comentarios = s.comentarios,
+                distanciaKm = s.distanciaKm,
+                estado = "Pendiente"
+            )
+        )
+        return s.copy(id = id.toInt(), productorId = productorId, estado = "Pendiente")
     }
 
+    // ---------- Ofertas ----------
     fun obtenerOfertas(solicitudId: Int): List<Oferta> =
-        ofertas.filter { it.solicitudId == solicitudId }
+        ofertaDao.getDeSolicitud(solicitudId).map { it.toDomain() }
 
-    fun aceptarOferta(ofertaId: Int) {
-        val oferta = ofertas.firstOrNull { it.id == ofertaId } ?: return
-        ofertas.replaceAll {
-            if (it.solicitudId == oferta.solicitudId) it.copy(aceptada = it.id == ofertaId) else it
+    fun obtenerOfertaDe(solicitudId: Int, aplicadorId: Long): Oferta? =
+        ofertaDao.getPorSolicitudYAplicador(solicitudId, aplicadorId)?.toDomain()
+
+    fun obtenerOfertasDeAplicador(aplicadorId: Long): List<OfertaDetalle> =
+        ofertaDao.getDeAplicador(aplicadorId).map { o ->
+            OfertaDetalle(o.toDomain(), obtenerSolicitud(o.solicitudId))
+        }
+
+    /** Crea la oferta, o actualiza el precio si el aplicador ya había ofertado. */
+    fun guardarOferta(
+        solicitudId: Int,
+        aplicadorId: Long,
+        aplicador: String,
+        telefono: String,
+        precioPorHa: Int
+    ) {
+        val existente = ofertaDao.getPorSolicitudYAplicador(solicitudId, aplicadorId)
+        if (existente != null) {
+            ofertaDao.actualizarPrecio(existente.id, precioPorHa)
+        } else {
+            ofertaDao.insertar(
+                OfertaEntity(
+                    solicitudId = solicitudId,
+                    aplicadorId = aplicadorId,
+                    aplicador = aplicador,
+                    telefono = telefono,
+                    precioPorHa = precioPorHa
+                )
+            )
+        }
+        val s = solicitudDao.getPorId(solicitudId)
+        if (s != null && s.estado == "Pendiente") {
+            solicitudDao.actualizarEstado(solicitudId, "Con ofertas")
         }
     }
+
+    fun aceptarOferta(ofertaId: Int) {
+        val oferta = ofertaDao.getPorId(ofertaId) ?: return
+        ofertaDao.actualizarEstado(ofertaId, "Aceptada")
+        ofertaDao.rechazarOtras(oferta.solicitudId, ofertaId)
+        solicitudDao.actualizarEstado(oferta.solicitudId, "Finalizada")
+    }
+
+    // ---------- Contadores de las pantallas de inicio ----------
+    fun contarSolicitudesActivas(productorId: Long): Int = solicitudDao.contarActivas(productorId)
+    fun contarOfertasNuevas(productorId: Long): Int = ofertaDao.contarNuevasDeProductor(productorId)
+    fun contarOfertasEnviadas(aplicadorId: Long): Int = ofertaDao.contarDeAplicador(aplicadorId)
+    fun contarOfertasAceptadas(aplicadorId: Long): Int = ofertaDao.contarAceptadasDeAplicador(aplicadorId)
 }
+
+private fun SolicitudEntity.toDomain() = Solicitud(
+    id = id,
+    tipoProducto = tipoProducto,
+    superficie = superficie,
+    aplicacion = aplicacion,
+    region = region,
+    tieneAgua = tieneAgua,
+    obstaculos = if (obstaculos.isBlank()) emptyList() else obstaculos.split("|"),
+    comentarios = comentarios,
+    distanciaKm = distanciaKm,
+    estado = estado,
+    productorId = productorId
+)
+
+private fun OfertaEntity.toDomain() = Oferta(
+    id = id,
+    solicitudId = solicitudId,
+    aplicador = aplicador,
+    precioPorHa = precioPorHa,
+    calificacion = calificacion,
+    estado = estado,
+    aplicadorId = aplicadorId,
+    telefono = telefono
+)

@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.duoc.ayanad.viewmodel.UsuarioFormViewModel
@@ -42,13 +43,21 @@ private val especialidades = listOf("Drones", "Fumigar")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Registro(viewModel: UsuarioFormViewModel) {
+fun Registro(
+    viewModel: UsuarioFormViewModel,
+    onRegistroExitoso: () -> Unit = {},
+    onVolver: () -> Unit = {}
+) {
 
     val form by viewModel.form.collectAsState()
     val errorMessage by viewModel.mensajeError.collectAsState()
     val registroExitoso by viewModel.registroExitoso.collectAsState()
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+
+    LaunchedEffect(registroExitoso) {
+        if (registroExitoso) onRegistroExitoso()
+    }
 
     Column(
         modifier = Modifier
@@ -138,6 +147,16 @@ fun Registro(viewModel: UsuarioFormViewModel) {
                 label = { Text("Email") },
                 placeholder = { Text("ejemplo@gmail.com") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Contraseña
+            OutlinedTextField(
+                value = form.password,
+                onValueChange = { if (it.length <= 30) viewModel.actualizarCampo(password = it) },
+                label = { Text("Contraseña (mínimo 6 caracteres)") },
+                visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -248,6 +267,13 @@ fun Registro(viewModel: UsuarioFormViewModel) {
                 colors = ButtonDefaults.buttonColors(containerColor = AzulTecMundo)
             ) {
                 Text("Registrarse", color = Color.White, fontSize = 16.sp)
+            }
+
+            TextButton(
+                onClick = onVolver,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Ya tengo cuenta, volver al inicio de sesión", color = AzulTecMundo)
             }
 
             if (registroExitoso) {

@@ -1,4 +1,5 @@
 package com.duoc.ayanad.ui
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,10 +13,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.duoc.ayanad.model.OfertaDetalle
+
+private fun estiloOferta(estado: String): Pair<Color, Color> = when (estado) {
+    "Aceptada" -> Pair(Color(0xFF388E3C), Color(0xFFE8F5E9))
+    "Rechazada" -> Pair(Color(0xFFD32F2F), Color(0xFFFFEBEE))
+    else -> Pair(Color(0xFF1976D2), Color(0xFFE3F2FD))
+}
 
 @Composable
-fun MisOfertasS(
-    onOfertaClick: () -> Unit = {}
+fun MisOfertas(
+    ofertas: List<OfertaDetalle> = emptyList(),
+    onOfertaClick: (OfertaDetalle) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
 
@@ -25,7 +34,6 @@ fun MisOfertasS(
             .background(Color(0xFFF5F7FA))
             .verticalScroll(scrollState)
     ) {
-        // Franja de TecMundo
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -46,40 +54,24 @@ fun MisOfertasS(
                 .fillMaxWidth()
                 .padding(20.dp)
         ) {
+            if (ofertas.isEmpty()) {
+                Text("Aún no has enviado ofertas.", color = Color.Gray)
+            }
 
-            OfertaCard(
-                estado = "Enviada",
-                colorEstado = Color(0xFF1976D2), // Azul
-                fondoEstado = Color(0xFFE3F2FD),
-                producto = "granulada",
-                superficie = "10 ha - Diurna",
-                tuOferta = "xxxx CLP por ha",
-                onClick = onOfertaClick
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OfertaCard(
-                estado = "Aceptada",
-                colorEstado = Color(0xFF388E3C), // Verde
-                fondoEstado = Color(0xFFE8F5E9),
-                producto = "líquida",
-                superficie = "50 ha - Diurna",
-                tuOferta = "xxxx CLP por ha",
-                onClick = onOfertaClick
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OfertaCard(
-                estado = "Rechazada",
-                colorEstado = Color(0xFFD32F2F), // Rojo
-                fondoEstado = Color(0xFFFFEBEE),
-                producto = "líquida",
-                superficie = "14 ha - Nocturna",
-                tuOferta = "xxxx CLP por ha",
-                onClick = onOfertaClick
-            )
+            ofertas.forEach { detalle ->
+                val (color, fondo) = estiloOferta(detalle.oferta.estado)
+                val s = detalle.solicitud
+                OfertaCard(
+                    estado = detalle.oferta.estado,
+                    colorEstado = color,
+                    fondoEstado = fondo,
+                    producto = s?.tipoProducto ?: "-",
+                    superficie = if (s != null) "${formatoHa(s.superficie)} ha - ${s.aplicacion}" else "-",
+                    tuOferta = "${formatoCLP(detalle.oferta.precioPorHa)} CLP por ha",
+                    onClick = { onOfertaClick(detalle) }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
     }
 }

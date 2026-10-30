@@ -14,5 +14,6 @@ data class UsuarioEntity(
     val telefono: String,
     val region: String,
     val tipoUsuario: String,
-    val especialidad: String
+    val especialidad: String,
+    val password: String = ""   // guardada como hash SHA-256 (ver UsuarioRepository.hashear)
 )

@@ -66,7 +66,7 @@ fun SolicitudesCercanas(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "${s.region} - A ${s.distanciaKm} km",
+                            if (s.distanciaKm > 0) "${s.region} - A ${s.distanciaKm} km" else s.region,
                             color = Color.Gray, fontSize = 12.sp
                         )
                     }
