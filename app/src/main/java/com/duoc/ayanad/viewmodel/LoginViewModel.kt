@@ -1,20 +1,20 @@
 package com.duoc.ayanad.viewmodel
 
-import android.content.Context
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.duoc.ayanad.model.AppDatabase
 import com.duoc.ayanad.model.LoginForm
 import com.duoc.ayanad.model.LoginFormError
-import com.duoc.ayanad.repository.SesionManager
 import com.duoc.ayanad.repository.UsuarioRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class LoginViewModel : ViewModel() {
+// Solo guarda el estado de la pantalla; las reglas están en UsuarioRepository.
+class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
-    val TAG = "LoginViewModel"
+    private val repository = UsuarioRepository(AppDatabase.getDatabase(application), application.filesDir)
 
     private val _form = MutableStateFlow(LoginForm())
     val form: StateFlow<LoginForm> = _form
@@ -32,62 +32,26 @@ class LoginViewModel : ViewModel() {
     fun onUsuarioChange(value: String) {
         _form.value = _form.value.copy(usuario = value)
         _errorLogin.value = null
-        validate()
+        _errors.value = repository.validarLogin(_form.value)
     }
 
     fun onPasswordChange(value: String) {
         _form.value = _form.value.copy(password = value)
         _errorLogin.value = null
-        validate()
+        _errors.value = repository.validarLogin(_form.value)
     }
 
-    private fun validate() {
-        val currentForm = _form.value
-
-        val usuarioError = when {
-            currentForm.usuario.isBlank() -> "El usuario es obligatorio"
-            else -> null
-        }
-
-        val passwordError = when {
-            currentForm.password.isBlank() -> "La contraseña es obligatoria"
-            else -> null
-        }
-
-        _errors.value = LoginFormError(
-            usuario = usuarioError,
-            password = passwordError
-        )
-    }
-
-    fun submit(context: Context) {
-        validate()
+    fun submit() {
+        _errors.value = repository.validarLogin(_form.value)
         if (!_errors.value.isValid()) return
 
-        val login = _form.value.usuario.trim()
-
-        // Administrador: cuenta fija, no pasa por la base de datos
-        if (login.equals(SesionManager.ADMIN_EMAIL, ignoreCase = true) &&
-            _form.value.password == SesionManager.ADMIN_PASSWORD
-        ) {
-            SesionManager.iniciarAdmin()
-            _errorLogin.value = null
-            _loginExitoso.value = true
-            return
-        }
-
-        val hash = UsuarioRepository.hashear(_form.value.password)
-
         viewModelScope.launch {
-            val repo = UsuarioRepository(AppDatabase.getDatabase(context).usuarioDao())
-            val usuario = repo.buscarPorLogin(login)
-            if (usuario == null || usuario.password != hash) {
+            if (repository.iniciarSesion(_form.value)) {
+                _errorLogin.value = null
+                _loginExitoso.value = true
+            } else {
                 _errorLogin.value = "Usuario o contraseña incorrectos"
-                return@launch
             }
-            SesionManager.iniciar(usuario)
-            _errorLogin.value = null
-            _loginExitoso.value = true
         }
     }
 

@@ -115,7 +115,7 @@ fun Login(
             }
 
             Button(
-                onClick = { viewModel.submit(context) },
+                onClick = { viewModel.submit() },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2962FF))
             ) {

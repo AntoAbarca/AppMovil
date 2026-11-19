@@ -2,50 +2,30 @@ package com.duoc.ayanad.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.duoc.ayanad.model.AppDatabase
 import com.duoc.ayanad.model.UsuarioEntity
+import com.duoc.ayanad.repository.UsuarioRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import java.io.File
+import kotlinx.coroutines.launch
 
+// Solo guarda la lista; eliminar usuarios (y todo lo que dependía de ellos) lo hace UsuarioRepository.
 class AdminViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val db = AppDatabase.getDatabase(application)
+    private val repository = UsuarioRepository(AppDatabase.getDatabase(application), application.filesDir)
 
     private val _usuarios = MutableStateFlow<List<UsuarioEntity>>(emptyList())
     val usuarios: StateFlow<List<UsuarioEntity>> = _usuarios
 
     fun cargar() {
-        _usuarios.value = db.usuarioDao().getAllUsuarios()
+        viewModelScope.launch { _usuarios.value = repository.obtenerUsuarios() }
     }
 
-    /** Elimina al usuario y limpia todo lo que dependía de él. */
     fun eliminar(usuario: UsuarioEntity) {
-        val solicitudDao = db.solicitudDao()
-        val ofertaDao = db.ofertaDao()
-
-        // Si era productor: se borran sus solicitudes y las ofertas que recibieron
-        solicitudDao.getDeProductor(usuario.id).forEach { ofertaDao.eliminarDeSolicitud(it.id) }
-        solicitudDao.eliminarDeProductor(usuario.id)
-
-        // Si era aplicador: se borran sus ofertas y se reabren las solicitudes que afectaban
-        val afectadas = ofertaDao.getDeAplicador(usuario.id).map { it.solicitudId }.distinct()
-        ofertaDao.eliminarDeAplicador(usuario.id)
-        afectadas.forEach { solicitudId ->
-            val restantes = ofertaDao.getDeSolicitud(solicitudId)
-            if (restantes.none { it.estado == "Aceptada" }) {
-                ofertaDao.reabrirRechazadas(solicitudId)
-                solicitudDao.actualizarEstado(
-                    solicitudId,
-                    if (restantes.isEmpty()) "Pendiente" else "Con ofertas"
-                )
-            }
+        viewModelScope.launch {
+            repository.eliminarUsuario(usuario)
+            _usuarios.value = repository.obtenerUsuarios()
         }
-
-        // Foto de perfil guardada en el teléfono
-        File(getApplication<Application>().filesDir, "perfil_${usuario.id}.jpg").delete()
-
-        db.usuarioDao().eliminar(usuario.id)
-        cargar()
     }
 }

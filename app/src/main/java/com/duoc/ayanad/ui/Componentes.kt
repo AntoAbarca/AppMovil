@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.duoc.ayanad.ui.navigation.NavegacionItem
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,8 +35,14 @@ val REGIONES = listOf(
 val TIPOS_PRODUCTO = listOf("Granulada", "Líquida")
 
 // Los pone AppNavegacion: si son null la pantalla no muestra el botón de inicio/perfil
-val LocalIrAInicio = compositionLocalOf<(() -> Unit)?> { null }
-val LocalIrAPerfil = compositionLocalOf<(() -> Unit)?> { null }
+/** Menú de la barra inferior: lo arma AppNavegacion con lo que entrega NavegacionRepository. */
+class MenuNavegacion(
+    val items: List<NavegacionItem>,
+    val rutaActual: String,
+    val onNavegar: (String) -> Unit
+)
+
+val LocalMenuNavegacion = compositionLocalOf<MenuNavegacion?> { null }
 
 /** Campos de texto con fondo blanco y letras negras (se leen igual en modo claro y oscuro). */
 @Composable
@@ -89,15 +96,24 @@ fun EncabezadoTm(titulo: String, onVolver: (() -> Unit)? = null) {
 
 @Composable
 fun BarraNavegacionTm(onInicio: () -> Unit = {}, onPerfil: () -> Unit = {}) {
-    val irInicio = LocalIrAInicio.current
-    val irPerfil = LocalIrAPerfil.current
+    val menu = LocalMenuNavegacion.current
     NavigationBar(containerColor = Color.White) {
-        NavigationBarItem(selected = false, onClick = {},
-            icon = { Icon(Icons.Default.Info, contentDescription = "Información") })
-        NavigationBarItem(selected = false, onClick = irInicio ?: onInicio,
-            icon = { Icon(Icons.Default.Home, contentDescription = "Inicio") })
-        NavigationBarItem(selected = false, onClick = irPerfil ?: onPerfil,
-            icon = { Icon(Icons.Default.Person, contentDescription = "Perfil") })
+        if (menu != null) {
+            // Un botón por cada item que entrega el repositorio según el tipo de usuario
+            menu.items.forEach { item ->
+                NavigationBarItem(
+                    selected = menu.rutaActual == item.ruta,
+                    onClick = { menu.onNavegar(item.ruta) },
+                    icon = { Icon(item.icono, contentDescription = item.titulo) },
+                    label = { Text(item.titulo, fontSize = 10.sp, maxLines = 1) }
+                )
+            }
+        } else {
+            NavigationBarItem(selected = false, onClick = onInicio,
+                icon = { Icon(Icons.Default.Home, contentDescription = "Inicio") })
+            NavigationBarItem(selected = false, onClick = onPerfil,
+                icon = { Icon(Icons.Default.Person, contentDescription = "Perfil") })
+        }
     }
 }
 

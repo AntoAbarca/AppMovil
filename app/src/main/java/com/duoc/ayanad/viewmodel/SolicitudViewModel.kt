@@ -13,6 +13,7 @@ import com.duoc.ayanad.repository.SolicitudRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
+// Solo guarda el estado de las pantallas; validaciones, estados y consultas están en SolicitudRepository.
 class SolicitudViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = SolicitudRepository(AppDatabase.getDatabase(application))
@@ -30,19 +31,12 @@ class SolicitudViewModel(application: Application) : AndroidViewModel(applicatio
     val publicada: StateFlow<Solicitud?> = _publicada
 
     fun onSuperficieChange(value: String) {
-        if (value.length <= 8 && value.all { it.isDigit() || it == '.' } && value.count { it == '.' } <= 1) {
-            _form.value = _form.value.copy(superficie = value)
-            validate()
-        }
+        if (repository.aceptaSuperficie(value)) actualizarForm(_form.value.copy(superficie = value))
     }
 
-    fun onTipoProductoChange(value: String) {
-        _form.value = _form.value.copy(tipoProducto = value); validate()
-    }
+    fun onTipoProductoChange(value: String) = actualizarForm(_form.value.copy(tipoProducto = value))
 
-    fun onRegionChange(value: String) {
-        _form.value = _form.value.copy(region = value); validate()
-    }
+    fun onRegionChange(value: String) = actualizarForm(_form.value.copy(region = value))
 
     fun onTieneAguaChange(value: Boolean) {
         _form.value = _form.value.copy(tieneAgua = value)
@@ -53,48 +47,22 @@ class SolicitudViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun onObstaculoToggle(nombre: String) {
-        val actual = _form.value.obstaculos
-        _form.value = _form.value.copy(
-            obstaculos = if (nombre in actual) actual - nombre else actual + nombre
-        )
+        _form.value = _form.value.copy(obstaculos = repository.alternarObstaculo(_form.value.obstaculos, nombre))
     }
 
     fun onComentariosChange(value: String) {
-        if (value.length <= 300) _form.value = _form.value.copy(comentarios = value)
+        if (repository.aceptaComentarios(value)) _form.value = _form.value.copy(comentarios = value)
     }
 
-    private fun validate() {
-        val f = _form.value
-        val sup = f.superficie.toDoubleOrNull()
-        _errors.value = SolicitudFormError(
-            superficie = when {
-                f.superficie.isBlank() -> "Ingresa la superficie"
-                sup == null || sup <= 0.0 -> "Debe ser un número mayor a 0"
-                sup > 10000.0 -> "Máximo 10.000 ha"
-                else -> null
-            },
-            tipoProducto = if (f.tipoProducto.isBlank()) "Selecciona un tipo de producto" else null,
-            region = if (f.region.isBlank()) "Selecciona una región" else null
-        )
+    private fun actualizarForm(nuevo: SolicitudForm) {
+        _form.value = nuevo
+        _errors.value = repository.validarSolicitud(nuevo)
     }
 
     fun publicarSolicitud() {
-        validate()
+        _errors.value = repository.validarSolicitud(_form.value)
         if (!_errors.value.isValid()) return
-        val f = _form.value
-        _publicada.value = repository.agregarSolicitud(
-            Solicitud(
-                id = 0,
-                tipoProducto = f.tipoProducto.lowercase(),
-                superficie = f.superficie.toDouble(),
-                aplicacion = f.aplicacion,
-                region = f.region,
-                tieneAgua = f.tieneAgua,
-                obstaculos = f.obstaculos.toList(),
-                comentarios = f.comentarios.trim()
-            ),
-            SesionManager.usuarioId
-        )
+        _publicada.value = repository.publicarSolicitud(_form.value, SesionManager.usuarioId)
         _form.value = SolicitudForm()
         _errors.value = SolicitudFormError()
     }
@@ -146,17 +114,13 @@ class SolicitudViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun onFiltroRegionChange(region: String) {
         _filtroRegion.value = region
-        refrescarCercanas()
+        cargarCercanas()
     }
 
     fun limpiarFiltro() = onFiltroRegionChange("")
 
-    fun cargarCercanas() = refrescarCercanas()
-
-    private fun refrescarCercanas() {
-        val region = _filtroRegion.value
-        _solicitudesCercanas.value = repository.obtenerSolicitudes()
-            .filter { it.estado != "Finalizada" && (region.isBlank() || it.region == region) }
+    fun cargarCercanas() {
+        _solicitudesCercanas.value = repository.solicitudesAbiertas(_filtroRegion.value)
     }
 
     // =====================================================
@@ -184,38 +148,24 @@ class SolicitudViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun onPrecioOfertaChange(value: String) {
-        if (value.length <= 7 && value.all { it.isDigit() }) {
+        if (repository.aceptaPrecio(value)) {
             _precioOferta.value = value
-            validarOferta()
+            _errorOferta.value = repository.validarPrecioOferta(value)
         }
-    }
-
-    private fun validarOferta(): Boolean {
-        val precio = _precioOferta.value.toIntOrNull()
-        _errorOferta.value = when {
-            _precioOferta.value.isBlank() -> "Ingresa el precio por ha"
-            precio == null || precio <= 0 -> "Debe ser mayor a 0"
-            precio < 1000 -> "El mínimo es 1.000 CLP por ha"
-            else -> null
-        }
-        return _errorOferta.value == null
     }
 
     fun enviarOferta() {
-        val s = _solicitudActual.value ?: return
-        if (!validarOferta()) return
-        if (s.estado == "Finalizada" || _miOferta.value?.estado == "Aceptada") {
-            _errorOferta.value = "Esta solicitud ya no admite ofertas"
-            return
-        }
-        repository.guardarOferta(
-            solicitudId = s.id,
+        val solicitud = _solicitudActual.value ?: return
+        val error = repository.enviarOferta(
+            solicitud = solicitud,
+            miOferta = _miOferta.value,
+            precio = _precioOferta.value,
             aplicadorId = SesionManager.usuarioId,
             aplicador = SesionManager.nombre,
-            telefono = SesionManager.telefono,
-            precioPorHa = _precioOferta.value.toInt()
+            telefono = SesionManager.telefono
         )
-        _ofertaEnviada.value = true
+        _errorOferta.value = error
+        if (error == null) _ofertaEnviada.value = true
     }
 
     fun consumirOfertaEnviada() { _ofertaEnviada.value = false }
@@ -236,15 +186,11 @@ class SolicitudViewModel(application: Application) : AndroidViewModel(applicatio
     private val _resumen = MutableStateFlow(Pair(0, 0))
     val resumen: StateFlow<Pair<Int, Int>> = _resumen
 
-    /** (solicitudes activas, ofertas nuevas) */
     fun cargarResumenProductor() {
-        val id = SesionManager.usuarioId
-        _resumen.value = Pair(repository.contarSolicitudesActivas(id), repository.contarOfertasNuevas(id))
+        _resumen.value = repository.resumenProductor(SesionManager.usuarioId)
     }
 
-    /** (ofertas enviadas, ofertas aceptadas) */
     fun cargarResumenAplicador() {
-        val id = SesionManager.usuarioId
-        _resumen.value = Pair(repository.contarOfertasEnviadas(id), repository.contarOfertasAceptadas(id))
+        _resumen.value = repository.resumenAplicador(SesionManager.usuarioId)
     }
 }

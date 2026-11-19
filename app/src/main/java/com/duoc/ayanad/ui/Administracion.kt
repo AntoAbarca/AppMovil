@@ -27,7 +27,8 @@ fun Administracion(
 
     Scaffold(
         containerColor = TmFondo,
-        topBar = { EncabezadoTm("Administración", null) }
+        topBar = { EncabezadoTm("Administración", null) },
+        bottomBar = { BarraNavegacionTm() }
     ) { padding ->
         Column(
             modifier = Modifier

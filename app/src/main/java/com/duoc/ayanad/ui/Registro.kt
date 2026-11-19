@@ -247,7 +247,7 @@ fun Registro(
 
             // Botón Registrarse
             Button(
-                onClick = { viewModel.submitForm(context) },
+                onClick = { viewModel.submitForm() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),

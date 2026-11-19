@@ -9,7 +9,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import com.duoc.ayanad.model.AppDatabase
+import com.duoc.ayanad.repository.NavegacionRepository
 import com.duoc.ayanad.repository.SesionManager
+import com.duoc.ayanad.ui.navigation.Rutas
 import com.duoc.ayanad.viewmodel.AdminViewModel
 import com.duoc.ayanad.viewmodel.LoginViewModel
 import com.duoc.ayanad.viewmodel.PerfilViewModel
@@ -17,27 +19,20 @@ import com.duoc.ayanad.viewmodel.SolicitudViewModel
 import com.duoc.ayanad.viewmodel.UsuarioFormViewModel
 
 /*
- * Navegación entre las 11 pantallas (sin librerías extra).
+ * Navegación entre las pantallas (sin librerías extra).
  *
- *  1 login            2 registro
- *  3 inicioProductor  4 misSolicitudes  5 nuevaSolicitud  6 detalleProductor/{id}
- *  7 inicioAplicador  8 cercanas        9 detalleAplicador/{id}  10 misOfertas
- *  11 perfil
+ * - Los nombres de las pantallas están en ui/navigation/Rutas.kt
+ * - Qué botones tiene la barra inferior (según el tipo de usuario) lo decide NavegacionRepository
+ * - Aquí solo se muestra la pantalla que corresponde a la ruta actual
  */
 
-private fun rutaInicio(tipo: String) = when (tipo) {
-    SesionManager.TIPO_ADMIN -> "administracion"
-    "Aplicador" -> "inicioAplicador"
-    else -> "inicioProductor"
-}
-
-private fun rutaDeArranque(context: Context): String {
+private fun rutaDeArranque(context: Context, navegacion: NavegacionRepository): String {
     // Si el usuario guardado en la sesión fue eliminado por el administrador, se cierra la sesión
     if (SesionManager.haySesion() && !SesionManager.esAdmin) {
         val existe = AppDatabase.getDatabase(context).usuarioDao().getPorId(SesionManager.usuarioId) != null
         if (!existe) SesionManager.cerrar()
     }
-    return if (SesionManager.haySesion()) rutaInicio(SesionManager.tipo) else "login"
+    return if (SesionManager.haySesion()) navegacion.rutaInicio(SesionManager.tipo) else Rutas.LOGIN
 }
 
 @Composable
@@ -49,14 +44,21 @@ fun AppNavegacion(
     adminVM: AdminViewModel
 ) {
     val context = LocalContext.current
+    val navegacion = remember { NavegacionRepository() }
 
     // Pila de pantallas; se guarda para sobrevivir a rotaciones
-    var pila by rememberSaveable { mutableStateOf(arrayListOf(rutaDeArranque(context))) }
+    var pila by rememberSaveable { mutableStateOf(arrayListOf(rutaDeArranque(context, navegacion))) }
 
     fun ir(ruta: String) { pila = ArrayList(pila + ruta) }
     fun volver() { if (pila.size > 1) pila = ArrayList(pila.dropLast(1)) }
     fun reiniciar(ruta: String) { pila = arrayListOf(ruta) }
-    fun irAInicio() = reiniciar(rutaInicio(SesionManager.tipo))
+    fun irAInicio() = reiniciar(navegacion.rutaInicio(SesionManager.tipo))
+
+    // Botones de la barra inferior: la pila queda [inicio, sección] y "atrás" vuelve al inicio
+    fun irASeccion(ruta: String) {
+        val inicio = navegacion.rutaInicio(SesionManager.tipo)
+        pila = if (ruta == inicio) arrayListOf(inicio) else arrayListOf(inicio, ruta)
+    }
 
     fun llamar(telefono: String) {
         val numero = telefono.filter { it.isDigit() || it == '+' }
@@ -75,151 +77,144 @@ fun AppNavegacion(
 
     val ruta = pila.last()
     val partes = ruta.split("/")
+    val base = partes[0]                                   // nombre de la pantalla, sin el id
     val id = partes.getOrNull(1)?.toIntOrNull() ?: 0
 
-    // Botón "home" de la barra inferior en todas las pantallas, salvo login, registro y los menús principales
-    val sinHome = partes[0] in listOf("login", "registro", "inicioProductor", "inicioAplicador", "administracion")
-    val homeLambda: (() -> Unit)? = if (sinHome) null else ({ irAInicio() })
-    val perfilLambda: (() -> Unit)? =
-        if (partes[0] in listOf("login", "registro", "perfil", "administracion")) null else ({ ir("perfil") })
-
-    CompositionLocalProvider(
-        LocalIrAInicio provides homeLambda,
-        LocalIrAPerfil provides perfilLambda
-    ) {
-    when (partes[0]) {
-
-        // 1
-        "login" -> Login(
-            viewModel = loginVM,
-            onLoginExitoso = {
-                loginVM.consumirLogin()
-                irAInicio()
-            },
-            onRecuperarPassword = {
-                Toast.makeText(context, "Función no disponible todavía", Toast.LENGTH_SHORT).show()
-            },
-            onCrearCuenta = { ir("registro") }
+    // Menú de la barra inferior: lo decide el repositorio según el tipo de usuario
+    val menu: MenuNavegacion? = if (navegacion.debeMostrarBarra(base)) {
+        MenuNavegacion(
+            items = navegacion.obtenerMenu(SesionManager.tipo),
+            rutaActual = navegacion.seccionDe(base),
+            onNavegar = { irASeccion(it) }
         )
+    } else null
 
-        // 2
-        "registro" -> Registro(
-            viewModel = registroVM,
-            onRegistroExitoso = {
-                registroVM.reiniciar()
-                Toast.makeText(context, "Cuenta creada. Ya puedes iniciar sesión", Toast.LENGTH_LONG).show()
-                reiniciar("login")
-            },
-            onVolver = { volver() }
-        )
+    CompositionLocalProvider(LocalMenuNavegacion provides menu) {
+        when (base) {
 
-        // 3
-        "inicioProductor" -> {
-            val resumen by solicitudVM.resumen.collectAsState()
-            LaunchedEffect(ruta) { solicitudVM.cargarResumenProductor() }
-            InicioProductor(
-                solicitudesActivas = resumen.first,
-                ofertasNuevas = resumen.second,
-                onNuevaSolicitud = { ir("nuevaSolicitud") },
-                onMisSolicitudes = { ir("misSolicitudes") },
-                onMiPerfil = { ir("perfil") }
+            Rutas.LOGIN -> Login(
+                viewModel = loginVM,
+                onLoginExitoso = {
+                    loginVM.consumirLogin()
+                    irAInicio()
+                },
+                onRecuperarPassword = {
+                    Toast.makeText(context, "Función no disponible todavía", Toast.LENGTH_SHORT).show()
+                },
+                onCrearCuenta = { ir(Rutas.REGISTRO) }
             )
-        }
 
-        // 4
-        "misSolicitudes" -> {
-            val lista by solicitudVM.misSolicitudes.collectAsState()
-            LaunchedEffect(ruta) { solicitudVM.cargarMisSolicitudes() }
-            MisSolicitudes(
-                solicitudes = lista,
-                onVolver = { volver() },
-                onNuevaSolicitudClick = { ir("nuevaSolicitud") },
-                onSolicitudClick = { ir("detalleProductor/${it.id}") }
+            Rutas.REGISTRO -> Registro(
+                viewModel = registroVM,
+                onRegistroExitoso = {
+                    registroVM.reiniciar()
+                    Toast.makeText(context, "Cuenta creada. Ya puedes iniciar sesión", Toast.LENGTH_LONG).show()
+                    reiniciar(Rutas.LOGIN)
+                },
+                onVolver = { volver() }
             )
-        }
 
-        // 5
-        "nuevaSolicitud" -> NuevaSolicitud(
-            viewModel = solicitudVM,
-            onVolver = { volver() },
-            onPublicada = {
-                // reemplaza esta pantalla por "Mis solicitudes"
-                pila = ArrayList(pila.dropLast(1) + "misSolicitudes")
+            // ---------- Productor ----------
+            Rutas.INICIO_PRODUCTOR -> {
+                val resumen by solicitudVM.resumen.collectAsState()
+                LaunchedEffect(ruta) { solicitudVM.cargarResumenProductor() }
+                InicioProductor(
+                    solicitudesActivas = resumen.first,
+                    ofertasNuevas = resumen.second,
+                    onNuevaSolicitud = { ir(Rutas.CREAR_SOLICITUD) },
+                    onMisSolicitudes = { ir(Rutas.MIS_SOLICITUDES) },
+                    onMiPerfil = { ir(Rutas.PERFIL) }
+                )
             }
-        )
 
-        // 6
-        "detalleProductor" -> DetalleSolicitudProductor(
-            viewModel = solicitudVM,
-            solicitudId = id,
-            onVolver = { volver() },
-            onComunicarse = { oferta -> llamar(oferta.telefono) }
-        )
+            Rutas.MIS_SOLICITUDES -> {
+                val lista by solicitudVM.misSolicitudes.collectAsState()
+                LaunchedEffect(ruta) { solicitudVM.cargarMisSolicitudes() }
+                MisSolicitudes(
+                    solicitudes = lista,
+                    onVolver = { volver() },
+                    onNuevaSolicitudClick = { ir(Rutas.CREAR_SOLICITUD) },
+                    onSolicitudClick = { ir(Rutas.detalleProductor(it.id)) }
+                )
+            }
 
-        // 7
-        "inicioAplicador" -> {
-            val resumen by solicitudVM.resumen.collectAsState()
-            LaunchedEffect(ruta) { solicitudVM.cargarResumenAplicador() }
-            InicioAplicador(
-                ofertasEnviadas = resumen.first,
-                ofertasAceptadas = resumen.second,
-                onSolicitudesCercanas = { ir("cercanas") },
-                onMisOfertas = { ir("misOfertas") },
-                onMiPerfil = { ir("perfil") }
-            )
-        }
-
-        // 8
-        "cercanas" -> {
-            LaunchedEffect(ruta) { solicitudVM.cargarCercanas() }
-            SolicitudesCercanas(
+            Rutas.CREAR_SOLICITUD -> NuevaSolicitud(
                 viewModel = solicitudVM,
                 onVolver = { volver() },
-                onSolicitudClick = { ir("detalleAplicador/${it.id}") }
+                onPublicada = {
+                    // reemplaza esta pantalla por "Mis solicitudes"
+                    pila = ArrayList(pila.dropLast(1) + Rutas.MIS_SOLICITUDES)
+                }
             )
-        }
 
-        // 9
-        "detalleAplicador" -> DetalleSolicitudAplicador(
-            viewModel = solicitudVM,
-            solicitudId = id,
-            onVolver = { volver() },
-            onOfertaEnviada = {
-                Toast.makeText(context, "Oferta enviada", Toast.LENGTH_SHORT).show()
-                volver()
-            }
-        )
-
-        // 10
-        "misOfertas" -> {
-            val lista by solicitudVM.misOfertas.collectAsState()
-            LaunchedEffect(ruta) { solicitudVM.cargarMisOfertas() }
-            MisOfertas(
-                ofertas = lista,
+            Rutas.DETALLE_PRODUCTOR -> DetalleSolicitudProductor(
+                viewModel = solicitudVM,
+                solicitudId = id,
                 onVolver = { volver() },
-                onOfertaClick = { ir("detalleAplicador/${it.oferta.solicitudId}") }
+                onComunicarse = { oferta -> llamar(oferta.telefono) }
+            )
+
+            // ---------- Aplicador ----------
+            Rutas.INICIO_APLICADOR -> {
+                val resumen by solicitudVM.resumen.collectAsState()
+                LaunchedEffect(ruta) { solicitudVM.cargarResumenAplicador() }
+                InicioAplicador(
+                    ofertasEnviadas = resumen.first,
+                    ofertasAceptadas = resumen.second,
+                    onSolicitudesCercanas = { ir(Rutas.SOLICITUDES_CERCA) },
+                    onMisOfertas = { ir(Rutas.MIS_OFERTAS) },
+                    onMiPerfil = { ir(Rutas.PERFIL) }
+                )
+            }
+
+            Rutas.SOLICITUDES_CERCA -> {
+                LaunchedEffect(ruta) { solicitudVM.cargarCercanas() }
+                SolicitudesCercanas(
+                    viewModel = solicitudVM,
+                    onVolver = { volver() },
+                    onSolicitudClick = { ir(Rutas.detalleAplicador(it.id)) }
+                )
+            }
+
+            Rutas.DETALLE_APLICADOR -> DetalleSolicitudAplicador(
+                viewModel = solicitudVM,
+                solicitudId = id,
+                onVolver = { volver() },
+                onOfertaEnviada = {
+                    Toast.makeText(context, "Oferta enviada", Toast.LENGTH_SHORT).show()
+                    volver()
+                }
+            )
+
+            Rutas.MIS_OFERTAS -> {
+                val lista by solicitudVM.misOfertas.collectAsState()
+                LaunchedEffect(ruta) { solicitudVM.cargarMisOfertas() }
+                MisOfertas(
+                    ofertas = lista,
+                    onVolver = { volver() },
+                    onOfertaClick = { ir(Rutas.detalleAplicador(it.oferta.solicitudId)) }
+                )
+            }
+
+            // ---------- Todos ----------
+            Rutas.PERFIL -> Perfil(
+                viewModel = perfilVM,
+                onVolver = { volver() },
+                onInicio = { irAInicio() },
+                onCerrarSesion = {
+                    SesionManager.cerrar()
+                    reiniciar(Rutas.LOGIN)
+                }
+            )
+
+            // ---------- Administrador ----------
+            Rutas.ADMIN -> Administracion(
+                viewModel = adminVM,
+                onCerrarSesion = {
+                    SesionManager.cerrar()
+                    reiniciar(Rutas.LOGIN)
+                }
             )
         }
-
-        // Administración (solo la cuenta admin)
-        "administracion" -> Administracion(
-            viewModel = adminVM,
-            onCerrarSesion = {
-                SesionManager.cerrar()
-                reiniciar("login")
-            }
-        )
-
-        // 11
-        "perfil" -> Perfil(
-            viewModel = perfilVM,
-            onVolver = { volver() },
-            onInicio = { irAInicio() },
-            onCerrarSesion = {
-                SesionManager.cerrar()
-                reiniciar("login")
-            }
-        )
-    }
     }
 }

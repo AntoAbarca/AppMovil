@@ -39,25 +39,7 @@ fun InicioProductor(
 ) {
     Scaffold(
         containerColor = Fondo,
-        bottomBar = {
-            NavigationBar(containerColor = Color.White) {
-                NavigationBarItem(
-                    selected = false,
-                    onClick = {},
-                    icon = { Icon(Icons.Default.Info, contentDescription = "Información") }
-                )
-                NavigationBarItem(
-                    selected = true,
-                    onClick = {},
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Inicio") }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = onMiPerfil,
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Perfil") }
-                )
-            }
-        }
+        bottomBar = { BarraNavegacionTm() }
     ) { padding ->
         Column(
             modifier = Modifier

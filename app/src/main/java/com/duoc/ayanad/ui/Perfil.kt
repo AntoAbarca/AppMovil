@@ -57,7 +57,7 @@ fun Perfil(
     val esAplicador by viewModel.esAplicador.collectAsState()
     val clasificacion by viewModel.clasificacion.collectAsState()
 
-    LaunchedEffect(Unit) { viewModel.cargarPerfil(context) }
+    LaunchedEffect(Unit) { viewModel.cargarPerfil() }
 
     // ---------- Foto de perfil con la cámara ----------
     val usuarioId = SesionManager.usuarioId
@@ -181,7 +181,7 @@ fun Perfil(
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
-                onClick = { viewModel.guardarCambios(context) },
+                onClick = { viewModel.guardarCambios() },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = TmAzul)
             ) {
