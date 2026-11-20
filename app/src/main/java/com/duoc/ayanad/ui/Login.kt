@@ -22,7 +22,6 @@ import com.duoc.ayanad.viewmodel.LoginViewModel
 fun Login(
     viewModel: LoginViewModel,
     onLoginExitoso: () -> Unit = {},
-    onRecuperarPassword: () -> Unit = {},
     onCrearCuenta: () -> Unit = {}
 ) {
     val form by viewModel.form.collectAsState()
@@ -124,9 +123,7 @@ fun Login(
 
             Spacer(modifier = Modifier.height(16.dp))
             Text("o")
-            TextButton(onClick = onRecuperarPassword) {
-                Text("Recuperar contraseña", color = Color(0xFF2962FF))
-            }
+
             TextButton(onClick = onCrearCuenta) {
                 Text("Crear una cuenta", color = Color(0xFF2962FF))
             }

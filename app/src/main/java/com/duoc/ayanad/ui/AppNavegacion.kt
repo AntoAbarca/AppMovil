@@ -98,9 +98,6 @@ fun AppNavegacion(
                     loginVM.consumirLogin()
                     irAInicio()
                 },
-                onRecuperarPassword = {
-                    Toast.makeText(context, "Función no disponible todavía", Toast.LENGTH_SHORT).show()
-                },
                 onCrearCuenta = { ir(Rutas.REGISTRO) }
             )
 
