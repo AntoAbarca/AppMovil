@@ -8,14 +8,11 @@ import com.duoc.ayanad.model.PerfilFormError
 import com.duoc.ayanad.model.ResultadoPerfil
 import com.duoc.ayanad.model.UsuarioEntity
 import com.duoc.ayanad.model.UsuarioForm
+import com.duoc.ayanad.remote.RetrofitInstance
 import java.io.File
 import java.security.MessageDigest
 import java.util.Locale
 
-/**
- * Toda la lógica de usuarios vive aquí: validaciones, login, registro, perfil y eliminación.
- * Los ViewModels solo guardan el estado de la pantalla y llaman a estas funciones.
- */
 class UsuarioRepository(db: AppDatabase, private val carpetaFotos: File) {
 
     private val dao = db.usuarioDao()
@@ -26,24 +23,28 @@ class UsuarioRepository(db: AppDatabase, private val carpetaFotos: File) {
     private val soloLetras = "^[a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]{2,}$".toRegex()
     private val emailRegex = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$".toRegex()
 
-    // ---------- Consultas básicas ----------
-    suspend fun obtenerUsuarios(): List<UsuarioEntity> = dao.getAllUsuarios()
+    suspend fun obtenerUsuarios(): List<UsuarioEntity> {
+        return try {
+            val usuariosRemotos = RetrofitInstance.api.obtenerUsuarios()
+            usuariosRemotos.forEach { dao.insertUsuario(it) }
+            usuariosRemotos
+        } catch (e: Exception) {
+            dao.getAllUsuarios()
+        }
+    }
 
     suspend fun obtenerPorId(id: Long): UsuarioEntity? = dao.getPorId(id)
 
     suspend fun buscarPorLogin(login: String): UsuarioEntity? = dao.getPorLogin(login)
 
-    // ---------- Login ----------
     fun validarLogin(f: LoginForm): LoginFormError = LoginFormError(
         usuario = if (f.usuario.isBlank()) "El usuario es obligatorio" else null,
         password = if (f.password.isBlank()) "La contraseña es obligatoria" else null
     )
 
-    /** Devuelve true si las credenciales son correctas y deja la sesión iniciada. */
     suspend fun iniciarSesion(f: LoginForm): Boolean {
         val login = f.usuario.trim()
 
-        // Administrador: cuenta fija, no pasa por la base de datos
         if (login.equals(SesionManager.ADMIN_EMAIL, ignoreCase = true) &&
             f.password == SesionManager.ADMIN_PASSWORD
         ) {
@@ -51,14 +52,21 @@ class UsuarioRepository(db: AppDatabase, private val carpetaFotos: File) {
             return true
         }
 
-        val usuario = dao.getPorLogin(login) ?: return false
-        if (usuario.password != hashear(f.password)) return false
-        SesionManager.iniciar(usuario)
-        return true
+        return try {
+            val credenciales = mapOf("login_text" to login, "password" to hashear(f.password))
+            val usuarioRemoto = RetrofitInstance.api.loginUsuario(credenciales)
+
+            dao.insertUsuario(usuarioRemoto)
+            SesionManager.iniciar(usuarioRemoto)
+            true
+        } catch (e: Exception) {
+            val usuarioLocal = dao.getPorLogin(login) ?: return false
+            if (usuarioLocal.password != hashear(f.password)) return false
+            SesionManager.iniciar(usuarioLocal)
+            true
+        }
     }
 
-    // ---------- Registro ----------
-    /** Devuelve el mensaje del primer error, o null si todo está bien. */
     fun validarRegistro(f: UsuarioForm): String? {
         if (f.tipoUsuario.isBlank()) return "Selecciona si eres productor o aplicador."
         if (!f.nombre.matches(soloLetras)) return "El nombre debe tener al menos 2 letras y sin números."
@@ -73,36 +81,37 @@ class UsuarioRepository(db: AppDatabase, private val carpetaFotos: File) {
         return null
     }
 
-    /** Valida y guarda al usuario. Devuelve el mensaje de error, o null si se registró. */
     suspend fun registrar(f: UsuarioForm): String? {
         validarRegistro(f)?.let { return it }
         if (dao.getPorLogin(f.email.trim()) != null) return "Ya existe una cuenta con ese correo."
         if (dao.getPorLogin(f.rut.trim()) != null) return "Ya existe una cuenta con ese RUT."
 
-        dao.insertUsuario(
-            UsuarioEntity(
-                nombre = f.nombre.trim(),
-                apellido = f.apellido.trim(),
-                rut = f.rut.trim(),
-                email = f.email.trim(),
-                telefono = prefijoTelefono + f.telefono,
-                region = f.region,
-                tipoUsuario = f.tipoUsuario,
-                especialidad = f.especialidad,
-                password = hashear(f.password)
-            )
+        val nuevoUsuario = UsuarioEntity(
+            nombre = f.nombre.trim(),
+            apellido = f.apellido.trim(),
+            rut = f.rut.trim(),
+            email = f.email.trim(),
+            telefono = prefijoTelefono + f.telefono,
+            region = f.region,
+            tipoUsuario = f.tipoUsuario,
+            especialidad = f.especialidad,
+            password = hashear(f.password)
         )
-        return null
+
+        return try {
+            val usuarioRegistradoRemoto = RetrofitInstance.api.registrarUsuario(nuevoUsuario)
+            dao.insertUsuario(usuarioRegistradoRemoto)
+            null
+        }  catch (e: Exception) {
+        e.printStackTrace() // Esto imprimirá el error real en el Logcat
+        "Error al conectar: ${e.message}"
+        }
     }
 
-    // ---------- Perfil ----------
     fun aceptaTelefono(v: String): Boolean = v.all { it.isDigit() } && v.length <= 8
-
     fun aceptaRut(v: String): Boolean = v.length <= 12
-
     fun esAplicador(u: UsuarioEntity?): Boolean = u?.tipoUsuario == "Aplicador"
 
-    /** Texto de la clasificación: promedio y cantidad de calificaciones recibidas. */
     fun clasificacionDe(u: UsuarioEntity?): String {
         if (u == null || !esAplicador(u)) return "Sin calificaciones"
         val cantidad = ofertaDao.contarCalificaciones(u.id)
@@ -129,12 +138,10 @@ class UsuarioRepository(db: AppDatabase, private val carpetaFotos: File) {
         region = if (f.region.isBlank()) "Selecciona una región" else null
     )
 
-    /** Valida y actualiza el perfil. Si hay errores, el usuario del resultado es null. */
     suspend fun guardarPerfil(actual: UsuarioEntity, f: PerfilForm): ResultadoPerfil {
         val errores = validarPerfil(f)
         if (!errores.isValid()) return ResultadoPerfil(null, errores)
 
-        // El correo y el RUT no pueden pertenecer a otra cuenta
         val otroCorreo = dao.getPorLogin(f.email.trim())
         if (otroCorreo != null && otroCorreo.id != actual.id) {
             return ResultadoPerfil(null, errores.copy(email = "Ese correo ya está en uso"))
@@ -152,19 +159,32 @@ class UsuarioRepository(db: AppDatabase, private val carpetaFotos: File) {
             telefono = prefijoTelefono + f.telefono,
             region = f.region
         )
-        dao.actualizarUsuario(actualizado)
-        SesionManager.iniciar(actualizado)   // mantiene nombre/teléfono de la sesión al día
-        return ResultadoPerfil(actualizado, errores)
+
+        return try {
+            val actualizadoRemoto = RetrofitInstance.api.actualizarUsuario(actualizado.id, actualizado)
+            dao.actualizarUsuario(actualizadoRemoto)
+            SesionManager.iniciar(actualizadoRemoto)
+            ResultadoPerfil(actualizadoRemoto, errores)
+        } catch (e: Exception) {
+            dao.actualizarUsuario(actualizado)
+            SesionManager.iniciar(actualizado)
+            ResultadoPerfil(actualizado, errores)
+        }
     }
 
-    // ---------- Administración ----------
-    /** Elimina al usuario y limpia todo lo que dependía de él. */
     suspend fun eliminarUsuario(usuario: UsuarioEntity) {
-        // Si era productor: se borran sus solicitudes y las ofertas que recibieron
+
+        try {
+            RetrofitInstance.api.eliminarUsuario(usuario.id)
+        } catch (e: Exception) {
+
+            e.printStackTrace()
+        }
+
+        // 2. Limpieza local (cascada)
         solicitudDao.getDeProductor(usuario.id).forEach { ofertaDao.eliminarDeSolicitud(it.id) }
         solicitudDao.eliminarDeProductor(usuario.id)
 
-        // Si era aplicador: se borran sus ofertas y se reabren las solicitudes que afectaban
         val afectadas = ofertaDao.getDeAplicador(usuario.id).map { it.solicitudId }.distinct()
         ofertaDao.eliminarDeAplicador(usuario.id)
         afectadas.forEach { solicitudId ->
@@ -178,14 +198,11 @@ class UsuarioRepository(db: AppDatabase, private val carpetaFotos: File) {
             }
         }
 
-        // Foto de perfil guardada en el teléfono
         File(carpetaFotos, "perfil_${usuario.id}.jpg").delete()
-
         dao.eliminar(usuario.id)
     }
 
     companion object {
-        /** La contraseña nunca se guarda en texto plano. */
         fun hashear(texto: String): String {
             val bytes = MessageDigest.getInstance("SHA-256").digest(("tecmundo:$texto").toByteArray())
             return bytes.joinToString("") { "%02x".format(it) }
