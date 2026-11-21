@@ -19,18 +19,6 @@ data class SolicitudEntity(
     val estado: String = "Pendiente"
 )
 
-@Entity(tableName = "ofertas")
-data class OfertaEntity(
-    @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
-    val solicitudId: Int,
-    val aplicadorId: Long,
-    val aplicador: String,
-    val telefono: String,
-    val precioPorHa: Int,
-    val calificacion: Int = 0,   // estrellas (1-5) que puso el productor; 0 = sin calificar
-    val estado: String = "Enviada"   // Enviada / Aceptada / Rechazada
-)
 
 data class SolicitudRequest(
     val productorId: Long,
@@ -44,3 +32,30 @@ data class SolicitudRequest(
     val distanciaKm: Int = 0,
     val estado: String = "Pendiente"
 )
+
+@Entity(tableName = "ofertas")
+data class OfertaEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Int = 0,
+    val solicitudId: Int,
+    val aplicadorId: Long,
+    val aplicador: String,
+    val telefono: String,
+    val precioPorHa: Int,
+    val calificacion: Int = 0,   // estrellas (1-5) que puso el productor; 0 = sin calificar
+    val estado: String = "Enviada"   // Enviada / Aceptada / Rechazada
+)
+
+data class OfertaRequest(
+    val solicitudId: Int,
+    val aplicadorId: Long,
+    val aplicador: String,
+    val telefono: String,
+    val precioPorHa: Int,
+    val calificacion: Int = 0,
+    val estado: String = "Enviada"
+)
+
+data class CalificarOfertaRequest(val calificacion: Int)
+data class EstadoOfertaRequest(val estado: String)
+data class PrecioOfertaRequest(val precioPorHa: Int)

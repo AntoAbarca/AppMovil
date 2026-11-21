@@ -1,6 +1,10 @@
 package com.duoc.ayanad.remote
 
+import com.duoc.ayanad.model.CalificarOfertaRequest
+import com.duoc.ayanad.model.EstadoOfertaRequest
 import com.duoc.ayanad.model.OfertaEntity
+import com.duoc.ayanad.model.OfertaRequest
+import com.duoc.ayanad.model.PrecioOfertaRequest
 import com.duoc.ayanad.model.SolicitudEntity
 import com.duoc.ayanad.model.SolicitudRequest
 import com.duoc.ayanad.model.UsuarioEntity
@@ -51,21 +55,30 @@ interface ApiService {
     @DELETE("solicitudes/productor/{productorId}")
     suspend fun eliminarSolicitudesDeProductor(@Path("productorId") productorId: Long)
 
-    @GET("ofertas/solicitud/{solicitudId}")
-    suspend fun obtenerOfertasPorSolicitud(@Path("solicitudId") solicitudId: Int): List<OfertaEntity>
+    @POST("ofertas")
+    suspend fun crearOferta(@Body oferta: OfertaRequest): Response<OfertaEntity>
 
     @GET("ofertas/aplicador/{aplicadorId}")
-    suspend fun obtenerOfertasPorAplicador(@Path("aplicadorId") aplicadorId: Long): List<OfertaEntity>
+    suspend fun obtenerOfertasPorAplicador(@Path("aplicadorId") aplicadorId: Long): Response<List<OfertaEntity>>
 
-    @POST("ofertas")
-    suspend fun crearOferta(@Body oferta: OfertaEntity): OfertaEntity
-
-    @PATCH("ofertas/{id}/precio")
-    suspend fun actualizarPrecioOferta(@Path("id") id: Int, @Body body: Map<String, Int>): OfertaEntity
-
-    @PATCH("ofertas/{id}/estado")
-    suspend fun actualizarEstadoOferta(@Path("id") id: Int, @Body body: Map<String, String>): OfertaEntity
+    @GET("ofertas/solicitud/{solicitudId}")
+    suspend fun obtenerOfertasPorSolicitud(@Path("solicitudId") solicitudId: Int): Response<List<OfertaEntity>>
 
     @PATCH("ofertas/{id}/calificar")
-    suspend fun calificarOferta(@Path("id") id: Int, @Body body: Map<String, Int>): OfertaEntity
+    suspend fun calificarOferta(
+        @Path("id") id: Int,
+        @Body body: CalificarOfertaRequest
+    ): Response<OfertaEntity>
+
+    @PATCH("ofertas/{id}/estado")
+    suspend fun actualizarEstadoOferta(
+        @Path("id") id: Int,
+        @Body body: EstadoOfertaRequest
+    ): Response<OfertaEntity>
+
+    @PATCH("ofertas/{id}/precio")
+    suspend fun actualizarPrecioOferta(
+        @Path("id") id: Int,
+        @Body body: PrecioOfertaRequest
+    ): Response<OfertaEntity>
 }

@@ -2,6 +2,7 @@ package com.duoc.ayanad.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.duoc.ayanad.model.AppDatabase
 import com.duoc.ayanad.model.Oferta
 import com.duoc.ayanad.model.OfertaDetalle
@@ -10,11 +11,9 @@ import com.duoc.ayanad.model.SolicitudForm
 import com.duoc.ayanad.model.SolicitudFormError
 import com.duoc.ayanad.repository.SesionManager
 import com.duoc.ayanad.repository.SolicitudRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -88,7 +87,12 @@ class SolicitudViewModel(application: Application) : AndroidViewModel(applicatio
     val misSolicitudes: StateFlow<List<Solicitud>> = _misSolicitudes
 
     fun cargarMisSolicitudes() {
-        _misSolicitudes.value = repository.obtenerSolicitudesDeProductor(SesionManager.usuarioId)
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.sincronizarSolicitudes()
+            }
+            _misSolicitudes.value = repository.obtenerSolicitudesDeProductor(SesionManager.usuarioId)
+        }
     }
 
     // =====================================================
@@ -101,18 +105,31 @@ class SolicitudViewModel(application: Application) : AndroidViewModel(applicatio
     val ofertas: StateFlow<List<Oferta>> = _ofertas
 
     fun cargarDetalle(solicitudId: Int) {
-        _solicitudActual.value = repository.obtenerSolicitud(solicitudId)
-        _ofertas.value = repository.obtenerOfertas(solicitudId)
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.sincronizarOfertasDeSolicitud(solicitudId)
+            }
+            _solicitudActual.value = repository.obtenerSolicitud(solicitudId)
+            _ofertas.value = repository.obtenerOfertas(solicitudId)
+        }
     }
 
     fun aceptarOferta(ofertaId: Int) {
-        repository.aceptarOferta(ofertaId)
-        _solicitudActual.value?.let { cargarDetalle(it.id) }
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.aceptarOferta(ofertaId)
+            }
+            _solicitudActual.value?.let { cargarDetalle(it.id) }
+        }
     }
 
     fun calificarOferta(ofertaId: Int, estrellas: Int) {
-        repository.calificarOferta(ofertaId, estrellas)
-        _solicitudActual.value?.let { cargarDetalle(it.id) }
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.calificarOferta(ofertaId, estrellas)
+            }
+            _solicitudActual.value?.let { cargarDetalle(it.id) }
+        }
     }
 
     // =====================================================
@@ -132,7 +149,12 @@ class SolicitudViewModel(application: Application) : AndroidViewModel(applicatio
     fun limpiarFiltro() = onFiltroRegionChange("")
 
     fun cargarCercanas() {
-        _solicitudesCercanas.value = repository.solicitudesAbiertas(_filtroRegion.value)
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.sincronizarSolicitudes()
+            }
+            _solicitudesCercanas.value = repository.solicitudesAbiertas(_filtroRegion.value)
+        }
     }
 
     // =====================================================
@@ -151,12 +173,17 @@ class SolicitudViewModel(application: Application) : AndroidViewModel(applicatio
     val miOferta: StateFlow<Oferta?> = _miOferta
 
     fun cargarDetalleAplicador(solicitudId: Int) {
-        _solicitudActual.value = repository.obtenerSolicitud(solicitudId)
-        val mia = repository.obtenerOfertaDe(solicitudId, SesionManager.usuarioId)
-        _miOferta.value = mia
-        _precioOferta.value = mia?.precioPorHa?.toString() ?: ""
-        _errorOferta.value = null
-        _ofertaEnviada.value = false
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.sincronizarOfertasDeSolicitud(solicitudId)
+            }
+            _solicitudActual.value = repository.obtenerSolicitud(solicitudId)
+            val mia = repository.obtenerOfertaDe(solicitudId, SesionManager.usuarioId)
+            _miOferta.value = mia
+            _precioOferta.value = mia?.precioPorHa?.toString() ?: ""
+            _errorOferta.value = null
+            _ofertaEnviada.value = false
+        }
     }
 
     fun onPrecioOfertaChange(value: String) {
@@ -168,16 +195,20 @@ class SolicitudViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun enviarOferta() {
         val solicitud = _solicitudActual.value ?: return
-        val error = repository.enviarOferta(
-            solicitud = solicitud,
-            miOferta = _miOferta.value,
-            precio = _precioOferta.value,
-            aplicadorId = SesionManager.usuarioId,
-            aplicador = SesionManager.nombre,
-            telefono = SesionManager.telefono
-        )
-        _errorOferta.value = error
-        if (error == null) _ofertaEnviada.value = true
+        viewModelScope.launch {
+            val error = withContext(Dispatchers.IO) {
+                repository.enviarOferta(
+                    solicitud = solicitud,
+                    miOferta = _miOferta.value,
+                    precio = _precioOferta.value,
+                    aplicadorId = SesionManager.usuarioId,
+                    aplicador = SesionManager.nombre,
+                    telefono = SesionManager.telefono
+                )
+            }
+            _errorOferta.value = error
+            if (error == null) _ofertaEnviada.value = true
+        }
     }
 
     fun consumirOfertaEnviada() { _ofertaEnviada.value = false }
@@ -189,7 +220,13 @@ class SolicitudViewModel(application: Application) : AndroidViewModel(applicatio
     val misOfertas: StateFlow<List<OfertaDetalle>> = _misOfertas
 
     fun cargarMisOfertas() {
-        _misOfertas.value = repository.obtenerOfertasDeAplicador(SesionManager.usuarioId)
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.sincronizarSolicitudes()
+                repository.sincronizarOfertasDeAplicador(SesionManager.usuarioId)
+            }
+            _misOfertas.value = repository.obtenerOfertasDeAplicador(SesionManager.usuarioId)
+        }
     }
 
     // =====================================================

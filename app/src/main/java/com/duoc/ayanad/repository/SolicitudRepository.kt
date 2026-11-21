@@ -1,9 +1,13 @@
 package com.duoc.ayanad.repository
 
 import com.duoc.ayanad.model.AppDatabase
+import com.duoc.ayanad.model.CalificarOfertaRequest
+import com.duoc.ayanad.model.EstadoOfertaRequest
 import com.duoc.ayanad.model.Oferta
 import com.duoc.ayanad.model.OfertaDetalle
 import com.duoc.ayanad.model.OfertaEntity
+import com.duoc.ayanad.model.OfertaRequest
+import com.duoc.ayanad.model.PrecioOfertaRequest
 import com.duoc.ayanad.model.Solicitud
 import com.duoc.ayanad.model.SolicitudEntity
 import com.duoc.ayanad.model.SolicitudForm
@@ -16,6 +20,7 @@ class SolicitudRepository(db: AppDatabase) {
     private val solicitudDao = db.solicitudDao()
     private val ofertaDao = db.ofertaDao()
 
+    // ---------- Solicitudes ----------
     fun obtenerSolicitudes(): List<Solicitud> = solicitudDao.getAll().map { it.toDomain() }
 
     fun obtenerSolicitudesDeProductor(productorId: Long): List<Solicitud> =
@@ -60,16 +65,14 @@ class SolicitudRepository(db: AppDatabase) {
             val solicitudRemota = respuesta.body()
 
             if (respuesta.isSuccessful && solicitudRemota != null) {
-                // Guardamos en Room el objeto que devolvió Xano (ya trae el ID real de la nube)
                 solicitudDao.insertar(solicitudRemota)
                 solicitudRemota.toDomain()
             } else {
-                println("Error Xano POST solicitudes (${respuesta.code()}): ${respuesta.errorBody()?.string()}")
+                println("🚨 Error Xano POST solicitudes (${respuesta.code()}): ${respuesta.errorBody()?.string()}")
                 guardarSolicitudLocal(s, productorId, obstaculosTexto)
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            // Respaldo offline si falla la conexión
             guardarSolicitudLocal(s, productorId, obstaculosTexto)
         }
     }
@@ -104,8 +107,30 @@ class SolicitudRepository(db: AppDatabase) {
             OfertaDetalle(aDominio(o), obtenerSolicitud(o.solicitudId))
         }
 
-    /** Crea la oferta, o actualiza el precio si el aplicador ya había ofertado. */
-    fun guardarOferta(
+    suspend fun sincronizarOfertasDeSolicitud(solicitudId: Int) {
+        try {
+            val respuesta = RetrofitInstance.api.obtenerOfertasPorSolicitud(solicitudId)
+            if (respuesta.isSuccessful) {
+                respuesta.body()?.forEach { ofertaDao.insertar(it) }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun sincronizarOfertasDeAplicador(aplicadorId: Long) {
+        try {
+            val respuesta = RetrofitInstance.api.obtenerOfertasPorAplicador(aplicadorId)
+            if (respuesta.isSuccessful) {
+                respuesta.body()?.forEach { ofertaDao.insertar(it) }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /** Crea la oferta en Xano y Room, o actualiza el precio si ya había ofertado. */
+    suspend fun guardarOferta(
         solicitudId: Int,
         aplicadorId: Long,
         aplicador: String,
@@ -114,17 +139,54 @@ class SolicitudRepository(db: AppDatabase) {
     ) {
         val existente = ofertaDao.getPorSolicitudYAplicador(solicitudId, aplicadorId)
         if (existente != null) {
+            try {
+                RetrofitInstance.api.actualizarPrecioOferta(
+                    existente.id,
+                    PrecioOfertaRequest(precioPorHa)
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
             ofertaDao.actualizarPrecio(existente.id, precioPorHa)
         } else {
-            ofertaDao.insertar(
-                OfertaEntity(
-                    solicitudId = solicitudId,
-                    aplicadorId = aplicadorId,
-                    aplicador = aplicador,
-                    telefono = telefono,
-                    precioPorHa = precioPorHa
-                )
+            val peticionXano = OfertaRequest(
+                solicitudId = solicitudId,
+                aplicadorId = aplicadorId,
+                aplicador = aplicador,
+                telefono = telefono,
+                precioPorHa = precioPorHa,
+                calificacion = 0,
+                estado = "Enviada"
             )
+            try {
+                val respuesta = RetrofitInstance.api.crearOferta(peticionXano)
+                val ofertaRemota = respuesta.body()
+                if (respuesta.isSuccessful && ofertaRemota != null) {
+                    ofertaDao.insertar(ofertaRemota)
+                } else {
+                    println("🚨 Error Xano POST ofertas (${respuesta.code()}): ${respuesta.errorBody()?.string()}")
+                    ofertaDao.insertar(
+                        OfertaEntity(
+                            solicitudId = solicitudId,
+                            aplicadorId = aplicadorId,
+                            aplicador = aplicador,
+                            telefono = telefono,
+                            precioPorHa = precioPorHa
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                ofertaDao.insertar(
+                    OfertaEntity(
+                        solicitudId = solicitudId,
+                        aplicadorId = aplicadorId,
+                        aplicador = aplicador,
+                        telefono = telefono,
+                        precioPorHa = precioPorHa
+                    )
+                )
+            }
         }
         val s = solicitudDao.getPorId(solicitudId)
         if (s != null && s.estado == "Pendiente") {
@@ -132,17 +194,32 @@ class SolicitudRepository(db: AppDatabase) {
         }
     }
 
-    fun aceptarOferta(ofertaId: Int) {
+    suspend fun aceptarOferta(ofertaId: Int) {
         val oferta = ofertaDao.getPorId(ofertaId) ?: return
+        try {
+            RetrofitInstance.api.actualizarEstadoOferta(ofertaId, EstadoOfertaRequest("Aceptada"))
+            ofertaDao.getDeSolicitud(oferta.solicitudId)
+                .filter { it.id != ofertaId }
+                .forEach { otra ->
+                    RetrofitInstance.api.actualizarEstadoOferta(otra.id, EstadoOfertaRequest("Rechazada"))
+                }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         ofertaDao.actualizarEstado(ofertaId, "Aceptada")
         ofertaDao.rechazarOtras(oferta.solicitudId, ofertaId)
         solicitudDao.actualizarEstado(oferta.solicitudId, "Finalizada")
     }
 
     /** El productor califica (1 a 5) el trabajo de una oferta que ya aceptó. */
-    fun calificarOferta(ofertaId: Int, estrellas: Int) {
+    suspend fun calificarOferta(ofertaId: Int, estrellas: Int) {
         val oferta = ofertaDao.getPorId(ofertaId) ?: return
         if (oferta.estado != "Aceptada" || estrellas !in 1..5) return
+        try {
+            RetrofitInstance.api.calificarOferta(ofertaId, CalificarOfertaRequest(estrellas))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         ofertaDao.calificar(ofertaId, estrellas)
     }
 
@@ -187,7 +264,7 @@ class SolicitudRepository(db: AppDatabase) {
         )
     }
 
-    /** Valida y publica la solicitud en Xano y Room. Devuelve null si el formulario tiene errores. */
+    /** Valida y publica la solicitud. Devuelve null si el formulario tiene errores. */
     suspend fun publicarSolicitud(f: SolicitudForm, productorId: Long): Solicitud? {
         if (!validarSolicitud(f).isValid()) return null
         return agregarSolicitud(
@@ -223,7 +300,8 @@ class SolicitudRepository(db: AppDatabase) {
         }
     }
 
-    fun enviarOferta(
+    /** Valida y guarda la oferta. Devuelve el mensaje de error, o null si se envió. */
+    suspend fun enviarOferta(
         solicitud: Solicitud,
         miOferta: Oferta?,
         precio: String,
@@ -239,12 +317,14 @@ class SolicitudRepository(db: AppDatabase) {
         return null
     }
 
+    // ---------- Contadores: (solicitudes activas, ofertas nuevas) y (enviadas, aceptadas) ----------
     fun resumenProductor(productorId: Long): Pair<Int, Int> =
         Pair(contarSolicitudesActivas(productorId), contarOfertasNuevas(productorId))
 
     fun resumenAplicador(aplicadorId: Long): Pair<Int, Int> =
         Pair(contarOfertasEnviadas(aplicadorId), contarOfertasAceptadas(aplicadorId))
 
+    // ---------- Contadores de las pantallas de inicio ----------
     fun contarSolicitudesActivas(productorId: Long): Int = solicitudDao.contarActivas(productorId)
     fun contarOfertasNuevas(productorId: Long): Int = ofertaDao.contarNuevasDeProductor(productorId)
     fun contarOfertasEnviadas(aplicadorId: Long): Int = ofertaDao.contarDeAplicador(aplicadorId)
