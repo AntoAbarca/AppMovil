@@ -44,6 +44,12 @@ class UsuarioRepository(db: AppDatabase, private val carpetaFotos: File) {
     )
 
     suspend fun iniciarSesion(f: LoginForm): Boolean {
+        val exito = autenticar(f)
+        if (exito) SesionManager.guardarAviso(SesionManager.usuarioId, SesionManager.AVISO_DISPONIBLES, -1)  // al entrar se vuelve a avisar lo disponible
+        return exito
+    }
+
+    private suspend fun autenticar(f: LoginForm): Boolean {
         val login = f.usuario.trim()
 
         if (login.equals(SesionManager.ADMIN_EMAIL, ignoreCase = true) &&

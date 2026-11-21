@@ -12,11 +12,20 @@ object SesionManager {
     const val ADMIN_PASSWORD = "admin"
     const val TIPO_ADMIN = "Administrador"
 
+    // Claves de los avisos ya mostrados (para no repetir la misma notificación)
+    const val AVISO_OFERTAS = "ofertas"            // último id de oferta avisado al productor
+    const val AVISO_ACEPTADAS = "aceptadas"        // ofertas aceptadas ya avisadas al aplicador
+    const val AVISO_DISPONIBLES = "disponibles"    // última cantidad de ofertas disponibles avisada
+
     private var prefs: SharedPreferences? = null
+    private var prefsAvisos: SharedPreferences? = null   // aparte de la sesión: sobrevive al cerrar sesión
 
     fun init(context: Context) {
         if (prefs == null) {
             prefs = context.applicationContext.getSharedPreferences("sesion_tecmundo", Context.MODE_PRIVATE)
+        }
+        if (prefsAvisos == null) {
+            prefsAvisos = context.applicationContext.getSharedPreferences("avisos_tecmundo", Context.MODE_PRIVATE)
         }
     }
 
@@ -24,6 +33,14 @@ object SesionManager {
     val tipo: String get() = prefs?.getString("tipo", "") ?: ""
     val nombre: String get() = prefs?.getString("nombre", "") ?: ""
     val telefono: String get() = prefs?.getString("telefono", "") ?: ""
+
+    /** Último valor avisado para este usuario (-1 si nunca se avisó). */
+    fun ultimoAviso(usuarioId: Long, clave: String): Int =
+        prefsAvisos?.getInt("${clave}_$usuarioId", -1) ?: -1
+
+    fun guardarAviso(usuarioId: Long, clave: String, valor: Int) {
+        prefsAvisos?.edit()?.putInt("${clave}_$usuarioId", valor)?.apply()
+    }
 
     fun haySesion(): Boolean = usuarioId != -1L
 

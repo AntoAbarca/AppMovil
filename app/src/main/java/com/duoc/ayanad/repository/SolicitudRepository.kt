@@ -1,6 +1,7 @@
 package com.duoc.ayanad.repository
 
 import com.duoc.ayanad.model.AppDatabase
+import com.duoc.ayanad.model.AvisoNotificacion
 import com.duoc.ayanad.model.CalificarOfertaRequest
 import com.duoc.ayanad.model.EstadoOfertaRequest
 import com.duoc.ayanad.model.Oferta
@@ -15,10 +16,11 @@ import com.duoc.ayanad.model.SolicitudFormError
 import com.duoc.ayanad.model.SolicitudRequest
 import com.duoc.ayanad.remote.RetrofitInstance
 
-class SolicitudRepository(db: AppDatabase) {
+class SolicitudRepository(private val db: AppDatabase) {
 
     private val solicitudDao = db.solicitudDao()
     private val ofertaDao = db.ofertaDao()
+    private val usuarioDao by lazy { db.usuarioDao() }   // solo se pide cuando se necesita la región del usuario
 
     // ---------- Solicitudes ----------
     fun obtenerSolicitudes(): List<Solicitud> = solicitudDao.getAll().map { it.toDomain() }
@@ -315,6 +317,77 @@ class SolicitudRepository(db: AppDatabase) {
         }
         guardarOferta(solicitud.id, aplicadorId, aplicador, telefono, precio.toInt())
         return null
+    }
+
+    // ---------- Avisos (notificaciones) ----------
+    /** Baja de Xano lo necesario para avisar: las solicitudes y las ofertas del usuario. */
+    suspend fun sincronizarParaAvisos(tipoUsuario: String, usuarioId: Long) {
+        when (tipoUsuario) {
+            "Aplicador" -> {
+                sincronizarSolicitudes()
+                sincronizarOfertasDeAplicador(usuarioId)
+            }
+            "Productor" -> {
+                sincronizarSolicitudes()
+                obtenerSolicitudesDeProductor(usuarioId).forEach { sincronizarOfertasDeSolicitud(it.id) }
+            }
+        }
+    }
+
+    /** Aviso de ofertas nuevas (productor) u oferta aceptada (aplicador). Null si no hay nada nuevo. */
+    fun avisoPendiente(tipoUsuario: String, usuarioId: Long): AvisoNotificacion? = when (tipoUsuario) {
+        "Productor" -> avisoOfertasNuevas(usuarioId)
+        "Aplicador" -> avisoOfertaAceptada(usuarioId)
+        else -> null
+    }
+
+    private fun avisoOfertasNuevas(productorId: Long): AvisoNotificacion? {
+        val ultimoAvisado = maxOf(SesionManager.ultimoAviso(productorId, SesionManager.AVISO_OFERTAS), 0)
+        val nuevas = ofertaDao.contarOfertasDesde(productorId, ultimoAvisado)
+        SesionManager.guardarAviso(productorId, SesionManager.AVISO_OFERTAS, ofertaDao.ultimaOfertaId(productorId))
+        if (nuevas == 0) return null
+        return AvisoNotificacion(
+            titulo = "Nuevas ofertas",
+            mensaje = if (nuevas == 1) "Recibiste 1 oferta nueva para tus solicitudes"
+            else "Recibiste $nuevas ofertas nuevas para tus solicitudes"
+        )
+    }
+
+    private fun avisoOfertaAceptada(aplicadorId: Long): AvisoNotificacion? {
+        val total = ofertaDao.contarAceptadasDeAplicador(aplicadorId)
+        val yaAvisadas = maxOf(SesionManager.ultimoAviso(aplicadorId, SesionManager.AVISO_ACEPTADAS), 0)
+        SesionManager.guardarAviso(aplicadorId, SesionManager.AVISO_ACEPTADAS, total)
+        if (total <= yaAvisadas) return null
+        val nuevas = total - yaAvisadas
+        return AvisoNotificacion(
+            titulo = "Oferta aceptada",
+            mensaje = if (nuevas == 1) "¡Aceptaron una de tus ofertas!" else "¡Aceptaron $nuevas de tus ofertas!"
+        )
+    }
+
+    /**
+     * Aviso para el aplicador: cuántas ofertas (solicitudes abiertas) hay disponibles en su región
+     * y todavía no ha ofertado. No repite el mismo número dos veces seguidas.
+     * Devuelve null si no es aplicador, no hay nada disponible o ya se avisó esa cantidad.
+     */
+    fun avisoDisponibles(tipoUsuario: String, usuarioId: Long): AvisoNotificacion? {
+        if (tipoUsuario != "Aplicador") return null
+        val region = usuarioDao.getPorId(usuarioId)?.region ?: return null
+
+        val disponibles = solicitudesAbiertas(region).count { solicitud ->
+            ofertaDao.getPorSolicitudYAplicador(solicitud.id, usuarioId) == null
+        }
+
+        val anterior = SesionManager.ultimoAviso(usuarioId, SesionManager.AVISO_DISPONIBLES)
+        SesionManager.guardarAviso(usuarioId, SesionManager.AVISO_DISPONIBLES, disponibles)
+        if (disponibles == 0 || disponibles == anterior) return null
+
+        return AvisoNotificacion(
+            titulo = "Ofertas disponibles en tu área",
+            mensaje = if (disponibles == 1) "Hay 1 oferta disponible para tu área ($region)"
+            else "Hay $disponibles ofertas disponibles para tu área ($region)",
+            id = AvisoNotificacion.ID_DISPONIBLES
+        )
     }
 
     // ---------- Contadores: (solicitudes activas, ofertas nuevas) y (enviadas, aceptadas) ----------

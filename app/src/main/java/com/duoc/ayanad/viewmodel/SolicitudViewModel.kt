@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.duoc.ayanad.model.AppDatabase
+import com.duoc.ayanad.model.AvisoNotificacion
 import com.duoc.ayanad.model.Oferta
 import com.duoc.ayanad.model.OfertaDetalle
 import com.duoc.ayanad.model.Solicitud
@@ -242,4 +243,24 @@ class SolicitudViewModel(application: Application) : AndroidViewModel(applicatio
     fun cargarResumenAplicador() {
         _resumen.value = repository.resumenAplicador(SesionManager.usuarioId)
     }
+
+    // =====================================================
+    // Notificaciones de ofertas
+    // =====================================================
+    private val _avisos = MutableStateFlow<List<AvisoNotificacion>>(emptyList())
+    val avisos: StateFlow<List<AvisoNotificacion>> = _avisos
+
+    fun revisarAvisos() {
+        viewModelScope.launch {
+            val tipo = SesionManager.tipo
+            val usuarioId = SesionManager.usuarioId
+            withContext(Dispatchers.IO) { repository.sincronizarParaAvisos(tipo, usuarioId) }
+            _avisos.value = listOfNotNull(
+                repository.avisoPendiente(tipo, usuarioId),
+                repository.avisoDisponibles(tipo, usuarioId)
+            )
+        }
+    }
+
+    fun consumirAvisos() { _avisos.value = emptyList() }
 }

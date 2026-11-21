@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import com.duoc.ayanad.notificacion.ProgramadorAvisos
 import com.duoc.ayanad.repository.SesionManager
 import com.duoc.ayanad.ui.AppNavegacion
 import com.duoc.ayanad.ui.theme.AyanadTheme
@@ -25,6 +26,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         SesionManager.init(this)
+        ProgramadorAvisos.programar(this)   // revisa ofertas cada 15 minutos, incluso con la app cerrada
         enableEdgeToEdge()
         setContent {
             AyanadTheme {

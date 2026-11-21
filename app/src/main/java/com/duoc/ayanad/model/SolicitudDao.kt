@@ -2,6 +2,7 @@ package com.duoc.ayanad.model
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 
 @Dao
@@ -15,7 +16,7 @@ interface SolicitudDao {
     @Query("SELECT * FROM solicitudes WHERE id = :id LIMIT 1")
     fun getPorId(id: Int): SolicitudEntity?
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)   // al sincronizar con Xano el mismo id puede llegar de nuevo
     fun insertar(solicitud: SolicitudEntity): Long
 
     @Query("UPDATE solicitudes SET estado = :estado WHERE id = :id")
@@ -42,7 +43,7 @@ interface OfertaDao {
     @Query("SELECT * FROM ofertas WHERE id = :id LIMIT 1")
     fun getPorId(id: Int): OfertaEntity?
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertar(oferta: OfertaEntity): Long
 
     @Query("UPDATE ofertas SET precioPorHa = :precio WHERE id = :id")
@@ -80,4 +81,11 @@ interface OfertaDao {
 
     @Query("SELECT COUNT(*) FROM ofertas o INNER JOIN solicitudes s ON s.id = o.solicitudId WHERE s.productorId = :productorId AND o.estado = 'Enviada'")
     fun contarNuevasDeProductor(productorId: Long): Int
+
+    // Ofertas recibidas por un productor con id mayor al último avisado (los ids solo crecen)
+    @Query("SELECT COUNT(*) FROM ofertas o INNER JOIN solicitudes s ON s.id = o.solicitudId WHERE s.productorId = :productorId AND o.id > :desdeId")
+    fun contarOfertasDesde(productorId: Long, desdeId: Int): Int
+
+    @Query("SELECT COALESCE(MAX(o.id), 0) FROM ofertas o INNER JOIN solicitudes s ON s.id = o.solicitudId WHERE s.productorId = :productorId")
+    fun ultimaOfertaId(productorId: Long): Int
 }

@@ -1,14 +1,19 @@
 package com.duoc.ayanad.ui
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import com.duoc.ayanad.model.AppDatabase
+import com.duoc.ayanad.notificacion.NotificacionHelper
 import com.duoc.ayanad.repository.NavegacionRepository
 import com.duoc.ayanad.repository.SesionManager
 import com.duoc.ayanad.ui.navigation.Rutas
@@ -79,6 +84,34 @@ fun AppNavegacion(
     val partes = ruta.split("/")
     val base = partes[0]                                   // nombre de la pantalla, sin el id
     val id = partes.getOrNull(1)?.toIntOrNull() ?: 0
+
+    // ---------- Notificaciones de ofertas ----------
+    val esInicio = base == Rutas.INICIO_PRODUCTOR || base == Rutas.INICIO_APLICADOR
+    var permisoNotificaciones by remember { mutableStateOf(NotificacionHelper.tienePermiso(context)) }
+    val pedirPermiso = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { concedido ->
+        permisoNotificaciones = concedido
+    }
+    val avisos by solicitudVM.avisos.collectAsState()
+
+    // Apenas se abre la app: pide el permiso para recibir notificaciones (Android 13+)
+    LaunchedEffect(Unit) {
+        if (!permisoNotificaciones && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pedirPermiso.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    // Al llegar al inicio, si hay permiso, revisa si hay ofertas por avisar
+    LaunchedEffect(ruta, permisoNotificaciones) {
+        if (esInicio && permisoNotificaciones) solicitudVM.revisarAvisos()
+    }
+
+    // Cuando el repositorio entrega avisos, se muestra una notificación por cada uno
+    LaunchedEffect(avisos) {
+        if (avisos.isNotEmpty()) {
+            avisos.forEach { NotificacionHelper.mostrar(context, it) }
+            solicitudVM.consumirAvisos()
+        }
+    }
 
     // Menú de la barra inferior: lo decide el repositorio según el tipo de usuario
     val menu: MenuNavegacion? = if (navegacion.debeMostrarBarra(base)) {
