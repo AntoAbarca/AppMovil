@@ -13,6 +13,11 @@ import com.duoc.ayanad.repository.SolicitudRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
 // Solo guarda el estado de las pantallas; validaciones, estados y consultas están en SolicitudRepository.
 class SolicitudViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -60,11 +65,18 @@ class SolicitudViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun publicarSolicitud() {
-        _errors.value = repository.validarSolicitud(_form.value)
+        val formActual = _form.value
+        _errors.value = repository.validarSolicitud(formActual)
         if (!_errors.value.isValid()) return
-        _publicada.value = repository.publicarSolicitud(_form.value, SesionManager.usuarioId)
-        _form.value = SolicitudForm()
-        _errors.value = SolicitudFormError()
+
+        viewModelScope.launch {
+            val creada = withContext(Dispatchers.IO) {
+                repository.publicarSolicitud(formActual, SesionManager.usuarioId)
+            }
+            _publicada.value = creada
+            _form.value = SolicitudForm()
+            _errors.value = SolicitudFormError()
+        }
     }
 
     fun consumirPublicada() { _publicada.value = null }

@@ -31,3 +31,16 @@ data class OfertaEntity(
     val calificacion: Int = 0,   // estrellas (1-5) que puso el productor; 0 = sin calificar
     val estado: String = "Enviada"   // Enviada / Aceptada / Rechazada
 )
+
+data class SolicitudRequest(
+    val productorId: Long,
+    val tipoProducto: String,
+    val superficie: Double,
+    val aplicacion: String,
+    val region: String,
+    val tieneAgua: Boolean,
+    val obstaculos: String,
+    val comentarios: String,
+    val distanciaKm: Int = 0,
+    val estado: String = "Pendiente"
+)

@@ -8,13 +8,14 @@ import com.duoc.ayanad.model.Solicitud
 import com.duoc.ayanad.model.SolicitudEntity
 import com.duoc.ayanad.model.SolicitudForm
 import com.duoc.ayanad.model.SolicitudFormError
+import com.duoc.ayanad.model.SolicitudRequest
+import com.duoc.ayanad.remote.RetrofitInstance
 
 class SolicitudRepository(db: AppDatabase) {
 
     private val solicitudDao = db.solicitudDao()
     private val ofertaDao = db.ofertaDao()
 
-    // ---------- Solicitudes ----------
     fun obtenerSolicitudes(): List<Solicitud> = solicitudDao.getAll().map { it.toDomain() }
 
     fun obtenerSolicitudesDeProductor(productorId: Long): List<Solicitud> =
@@ -22,7 +23,58 @@ class SolicitudRepository(db: AppDatabase) {
 
     fun obtenerSolicitud(id: Int): Solicitud? = solicitudDao.getPorId(id)?.toDomain()
 
-    fun agregarSolicitud(s: Solicitud, productorId: Long): Solicitud {
+    /** Descarga las solicitudes desde Xano y actualiza la caché local en Room. */
+    suspend fun sincronizarSolicitudes(): List<Solicitud> {
+        try {
+            val respuesta = RetrofitInstance.api.obtenerSolicitudes()
+            if (respuesta.isSuccessful) {
+                respuesta.body()?.forEach { solicitudRemota ->
+                    solicitudDao.insertar(solicitudRemota)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return obtenerSolicitudes()
+    }
+
+    /** Envía la solicitud a Xano y la guarda en Room con el ID real del servidor. */
+    suspend fun agregarSolicitud(s: Solicitud, productorId: Long): Solicitud {
+        val obstaculosTexto = s.obstaculos.joinToString("|")
+
+        val peticionXano = SolicitudRequest(
+            productorId = productorId,
+            tipoProducto = s.tipoProducto,
+            superficie = s.superficie,
+            aplicacion = s.aplicacion,
+            region = s.region,
+            tieneAgua = s.tieneAgua,
+            obstaculos = obstaculosTexto,
+            comentarios = s.comentarios,
+            distanciaKm = s.distanciaKm,
+            estado = "Pendiente"
+        )
+
+        return try {
+            val respuesta = RetrofitInstance.api.crearSolicitud(peticionXano)
+            val solicitudRemota = respuesta.body()
+
+            if (respuesta.isSuccessful && solicitudRemota != null) {
+                // Guardamos en Room el objeto que devolvió Xano (ya trae el ID real de la nube)
+                solicitudDao.insertar(solicitudRemota)
+                solicitudRemota.toDomain()
+            } else {
+                println("Error Xano POST solicitudes (${respuesta.code()}): ${respuesta.errorBody()?.string()}")
+                guardarSolicitudLocal(s, productorId, obstaculosTexto)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Respaldo offline si falla la conexión
+            guardarSolicitudLocal(s, productorId, obstaculosTexto)
+        }
+    }
+
+    private fun guardarSolicitudLocal(s: Solicitud, productorId: Long, obstaculosTexto: String): Solicitud {
         val id = solicitudDao.insertar(
             SolicitudEntity(
                 productorId = productorId,
@@ -31,7 +83,7 @@ class SolicitudRepository(db: AppDatabase) {
                 aplicacion = s.aplicacion,
                 region = s.region,
                 tieneAgua = s.tieneAgua,
-                obstaculos = s.obstaculos.joinToString("|"),
+                obstaculos = obstaculosTexto,
                 comentarios = s.comentarios,
                 distanciaKm = s.distanciaKm,
                 estado = "Pendiente"
@@ -135,8 +187,8 @@ class SolicitudRepository(db: AppDatabase) {
         )
     }
 
-    /** Valida y publica la solicitud. Devuelve null si el formulario tiene errores. */
-    fun publicarSolicitud(f: SolicitudForm, productorId: Long): Solicitud? {
+    /** Valida y publica la solicitud en Xano y Room. Devuelve null si el formulario tiene errores. */
+    suspend fun publicarSolicitud(f: SolicitudForm, productorId: Long): Solicitud? {
         if (!validarSolicitud(f).isValid()) return null
         return agregarSolicitud(
             Solicitud(
@@ -171,7 +223,6 @@ class SolicitudRepository(db: AppDatabase) {
         }
     }
 
-    /** Valida y guarda la oferta. Devuelve el mensaje de error, o null si se envió. */
     fun enviarOferta(
         solicitud: Solicitud,
         miOferta: Oferta?,
@@ -188,14 +239,12 @@ class SolicitudRepository(db: AppDatabase) {
         return null
     }
 
-    // ---------- Contadores: (solicitudes activas, ofertas nuevas) y (enviadas, aceptadas) ----------
     fun resumenProductor(productorId: Long): Pair<Int, Int> =
         Pair(contarSolicitudesActivas(productorId), contarOfertasNuevas(productorId))
 
     fun resumenAplicador(aplicadorId: Long): Pair<Int, Int> =
         Pair(contarOfertasEnviadas(aplicadorId), contarOfertasAceptadas(aplicadorId))
 
-    // ---------- Contadores de las pantallas de inicio ----------
     fun contarSolicitudesActivas(productorId: Long): Int = solicitudDao.contarActivas(productorId)
     fun contarOfertasNuevas(productorId: Long): Int = ofertaDao.contarNuevasDeProductor(productorId)
     fun contarOfertasEnviadas(aplicadorId: Long): Int = ofertaDao.contarDeAplicador(aplicadorId)

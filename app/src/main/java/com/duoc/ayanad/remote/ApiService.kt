@@ -2,6 +2,7 @@ package com.duoc.ayanad.remote
 
 import com.duoc.ayanad.model.OfertaEntity
 import com.duoc.ayanad.model.SolicitudEntity
+import com.duoc.ayanad.model.SolicitudRequest
 import com.duoc.ayanad.model.UsuarioEntity
 import com.duoc.ayanad.model.UsuarioRequest
 import retrofit2.Response
@@ -33,7 +34,7 @@ interface ApiService {
     suspend fun eliminarUsuario(@Path("id") id: Long)
 
     @GET("solicitudes")
-    suspend fun obtenerSolicitudes(): List<SolicitudEntity>
+    suspend fun obtenerSolicitudes(): Response<List<SolicitudEntity>>
 
     @GET("solicitudes/productor/{productorId}")
     suspend fun obtenerSolicitudesDeProductor(@Path("productorId") productorId: Long): List<SolicitudEntity>
@@ -42,7 +43,7 @@ interface ApiService {
     suspend fun obtenerSolicitud(@Path("id") id: Int): SolicitudEntity
 
     @POST("solicitudes")
-    suspend fun crearSolicitud(@Body solicitud: SolicitudEntity): SolicitudEntity
+    suspend fun crearSolicitud(@Body solicitud: SolicitudRequest): Response<SolicitudEntity>
 
     @PATCH("solicitudes/{id}/estado")
     suspend fun actualizarEstadoSolicitud(@Path("id") id: Int, @Body body: Map<String, String>): SolicitudEntity
