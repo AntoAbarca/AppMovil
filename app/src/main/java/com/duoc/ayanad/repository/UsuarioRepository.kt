@@ -8,6 +8,7 @@ import com.duoc.ayanad.model.PerfilFormError
 import com.duoc.ayanad.model.ResultadoPerfil
 import com.duoc.ayanad.model.UsuarioEntity
 import com.duoc.ayanad.model.UsuarioForm
+import com.duoc.ayanad.model.UsuarioRequest
 import com.duoc.ayanad.remote.RetrofitInstance
 import java.io.File
 import java.security.MessageDigest
@@ -99,12 +100,35 @@ class UsuarioRepository(db: AppDatabase, private val carpetaFotos: File) {
         )
 
         return try {
-            val usuarioRegistradoRemoto = RetrofitInstance.api.registrarUsuario(nuevoUsuario)
-            dao.insertUsuario(usuarioRegistradoRemoto)
-            null
-        }  catch (e: Exception) {
-        e.printStackTrace() // Esto imprimirá el error real en el Logcat
-        "Error al conectar: ${e.message}"
+            val peticionXano = UsuarioRequest(
+                nombre = nuevoUsuario.nombre,
+                apellido = nuevoUsuario.apellido,
+                rut = nuevoUsuario.rut,
+                email = nuevoUsuario.email,
+                telefono = nuevoUsuario.telefono,
+                region = nuevoUsuario.region,
+                tipoUsuario = nuevoUsuario.tipoUsuario,
+                especialidad = nuevoUsuario.especialidad,
+                password = nuevoUsuario.password
+            )
+
+            val respuesta = RetrofitInstance.api.registrarUsuario(peticionXano)
+
+            if (respuesta.isSuccessful) {
+                val usuarioRemoto = respuesta.body()
+                if (usuarioRemoto != null) {
+                    dao.insertUsuario(usuarioRemoto)
+                } else {
+                    dao.insertUsuario(nuevoUsuario)
+                }
+                null // Registro exitoso
+            } else {
+                // Muestra el código HTTP y el motivo exacto si Xano rechaza la petición
+                val detalleError = respuesta.errorBody()?.string() ?: "Sin detalle"
+                "Error HTTP ${respuesta.code()}: $detalleError"
+            }
+        } catch (e: Exception) {
+            "Fallo de red: ${e.message}"
         }
     }
 

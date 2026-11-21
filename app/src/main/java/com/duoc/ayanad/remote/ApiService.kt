@@ -3,6 +3,8 @@ package com.duoc.ayanad.remote
 import com.duoc.ayanad.model.OfertaEntity
 import com.duoc.ayanad.model.SolicitudEntity
 import com.duoc.ayanad.model.UsuarioEntity
+import com.duoc.ayanad.model.UsuarioRequest
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
@@ -22,7 +24,7 @@ interface ApiService {
     suspend fun loginUsuario(@Body credenciales: Map<String, String>): UsuarioEntity
 
     @POST("usuarios")
-    suspend fun registrarUsuario(@Body usuario: UsuarioEntity): UsuarioEntity
+    suspend fun registrarUsuario(@Body usuario: UsuarioRequest): Response<UsuarioEntity>
 
     @PATCH("usuarios/{id}")
     suspend fun actualizarUsuario(@Path("id") id: Long, @Body usuario: UsuarioEntity): UsuarioEntity
